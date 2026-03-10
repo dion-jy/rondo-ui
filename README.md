@@ -64,6 +64,23 @@ vercel
 
 Add your domain in Vercel dashboard → Settings → Domains.
 
+## Deployment
+
+This project uses GitHub Actions to deploy to Vercel via the Vercel CLI (no Vercel GitHub integration required).
+
+- **Pull requests** → automatic preview deployment; the preview URL is posted as a PR comment
+- **Push to `main`** → automatic production deployment
+
+### Required GitHub Secrets
+
+Set these in your repo under **Settings → Secrets and variables → Actions**:
+
+| Secret | How to get it |
+|--------|---------------|
+| `VERCEL_TOKEN` | Create a token at [vercel.com/account/tokens](https://vercel.com/account/tokens) |
+| `VERCEL_ORG_ID` | Run `npx vercel link` locally, then check `.vercel/project.json` → `orgId` |
+| `VERCEL_PROJECT_ID` | Same file (`.vercel/project.json`) → `projectId` |
+
 ## Tech Stack
 
 - React 19 + TypeScript
