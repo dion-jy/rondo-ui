@@ -538,8 +538,8 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                         style={{ top: `${nowTop}px` }}
                       >
                         <div className="relative flex items-center">
-                          <span className="w-2 h-2 rounded-full bg-accent-pink -ml-1 shadow-[0_0_8px_rgba(236,72,153,0.6)]" />
-                          <div className="flex-1 h-[1.5px] bg-accent-pink/60" />
+                          <span className="w-2 h-2 rounded-full bg-accent-rose -ml-1 shadow-[0_0_8px_rgba(232,92,138,0.6)]" />
+                          <div className="flex-1 h-[1.5px] bg-accent-rose/60" />
                         </div>
                       </div>
                     )}

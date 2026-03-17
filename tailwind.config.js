@@ -5,26 +5,26 @@ export default {
     extend: {
       colors: {
         surface: {
-          DEFAULT: "#0b0713",
-          card: "#110e1b",
-          hover: "#1a1528",
-          raised: "#211b33",
+          DEFAULT: "#0a0c11",
+          card: "#11141c",
+          hover: "#1a1e29",
+          raised: "#232836",
         },
         accent: {
-          DEFAULT: "#c084fc",
-          hover: "#d8b4fe",
-          muted: "#a855f7",
-          dim: "#7c3aed",
-          pink: "#ec4899",
+          DEFAULT: "#e8a44e",
+          hover: "#f2c47a",
+          muted: "#cc8a36",
+          dim: "#a86e24",
+          rose: "#e85c8a",
         },
         border: {
           DEFAULT: "rgba(255,255,255,0.06)",
           hover: "rgba(255,255,255,0.10)",
-          accent: "rgba(192,132,252,0.25)",
+          accent: "rgba(232,164,78,0.25)",
         },
       },
       boxShadow: {
-        glow: "0 0 24px rgba(139,92,246,0.15)",
+        glow: "0 0 24px rgba(232,164,78,0.15)",
         "card-hover": "0 8px 32px rgba(0,0,0,0.4)",
         "sticky-left": "6px 0 16px rgba(0,0,0,0.5)",
       },
