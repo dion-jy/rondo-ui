@@ -14,8 +14,8 @@ function RondoLogo() {
         <path d="M15 5 C15 5, 22 4, 21 9 C20 13, 17 11, 17.2 9" fill="url(#logo-grad)" opacity="0.7" />
         <defs>
           <linearGradient id="logo-grad" x1="4" y1="4" x2="24" y2="24">
-            <stop stopColor="#f2c47a" />
-            <stop offset="1" stopColor="#cc8a36" />
+            <stop stopColor="#9B8FFF" />
+            <stop offset="1" stopColor="#5E50CC" />
           </linearGradient>
         </defs>
       </svg>

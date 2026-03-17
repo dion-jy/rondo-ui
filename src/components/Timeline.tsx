@@ -257,7 +257,7 @@ function LayerToggle({
         <span className={`w-1.5 h-1.5 rounded-full ${layers.sessions ? "bg-accent-aqua" : "bg-gray-700"}`} />
         Sessions
         {sessionCount > 0 && layers.sessions && (
-          <span className="ml-0.5 bg-accent/20 text-amber-300 rounded-full px-1 text-[9px]">{sessionCount}</span>
+          <span className="ml-0.5 bg-accent/20 text-accent-brass rounded-full px-1 text-[9px]">{sessionCount}</span>
         )}
       </button>
     </div>
