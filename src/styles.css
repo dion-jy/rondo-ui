@@ -2,13 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════
+   Rondo Brand Palette — CSS Custom Properties
+   ═══════════════════════════════════════════ */
+:root {
+  /* Core */
+  --rondo-iris: #7C6CFF;
+  --rondo-iris-light: #9B8FFF;
+  --rondo-iris-dim: #5E50CC;
+  --rondo-aqua: #33D1C6;
+  --rondo-aqua-dim: #1FA89E;
+  --rondo-brass: #C8A96B;
+  --rondo-brass-dim: #A68B4F;
+
+  /* Surfaces */
+  --rondo-bg: #0d1017;
+  --rondo-surface: #141821;
+  --rondo-surface-hover: #1c2130;
+  --rondo-surface-raised: #252b3a;
+
+  /* Status */
+  --rondo-success: #34D399;
+  --rondo-error: #FB7185;
+  --rondo-warning: #FBBF24;
+  --rondo-info: #60A5FA;
+
+  /* Event palette — orchestral tones */
+  --ev-cello: #6366F1;      /* indigo — deep, grounding */
+  --ev-violin: #A78BFA;     /* violet — melodic, light */
+  --ev-horn: #C8A96B;       /* brass — warm, bold */
+  --ev-flute: #33D1C6;      /* teal — airy, bright */
+  --ev-oboe: #F472B6;       /* pink — expressive */
+  --ev-timpani: #FB923C;    /* orange — percussive */
+  --ev-harp: #67E8F9;       /* cyan — ethereal */
+  --ev-bassoon: #4ADE80;    /* green — woody, grounded */
+}
+
 @layer base {
   body {
     @apply bg-surface text-gray-100 antialiased;
     font-family: "Inter", system-ui, -apple-system, sans-serif;
   }
 
-  /* Custom scrollbar — thin, subtle */
+  /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 5px;
     height: 5px;
@@ -23,7 +59,7 @@
     @apply bg-white/20;
   }
 
-  /* Range input styling */
+  /* Range input */
   input[type="range"] {
     -webkit-appearance: none;
     appearance: none;
@@ -31,14 +67,14 @@
   }
   input[type="range"]::-webkit-slider-runnable-track {
     @apply h-1 rounded-full;
-    background: rgba(255,255,255,0.06);
+    background: rgba(124,108,255,0.08);
   }
   input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     @apply w-3 h-3 rounded-full cursor-pointer;
-    background: #e8a44e;
+    background: var(--rondo-iris);
     margin-top: -4px;
-    box-shadow: 0 0 8px rgba(232,164,78,0.4);
+    box-shadow: 0 0 8px rgba(124,108,255,0.4);
   }
 }
 
@@ -64,22 +100,29 @@
   }
 
   .badge-ok {
-    @apply bg-emerald-500/10 text-emerald-400 border border-emerald-500/20;
+    background: rgba(51,209,198,0.10);
+    color: var(--rondo-aqua);
+    border: 1px solid rgba(51,209,198,0.20);
   }
 
   .badge-error {
-    @apply bg-rose-500/10 text-rose-400 border border-rose-500/20;
+    background: rgba(251,113,133,0.10);
+    color: var(--rondo-error);
+    border: 1px solid rgba(251,113,133,0.20);
   }
 
   .badge-running {
-    @apply bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 animate-pulse;
+    background: rgba(124,108,255,0.10);
+    color: var(--rondo-iris-light);
+    border: 1px solid rgba(124,108,255,0.20);
+    animation: pulse 2s cubic-bezier(0.4,0,0.6,1) infinite;
   }
 
   .badge-disabled {
     @apply bg-gray-500/10 text-gray-500 border border-gray-500/10;
   }
 
-  /* Timeline event bar — solid colored rectangle (Toggl-style) */
+  /* ── Timeline event bar ── */
   .timeline-bar {
     @apply absolute rounded-sm transition-all duration-150 cursor-pointer overflow-hidden;
     min-width: 6px;
@@ -101,32 +144,32 @@
     }
   }
 
-  /* Tab pill active state — gold accent */
+  /* ── Tab pill active — Iris accent ── */
   .tab-active {
     @apply font-medium;
-    background: rgba(232,164,78,0.12);
-    color: #e8a44e;
-    box-shadow: inset 0 0 0 1px rgba(232,164,78,0.2);
+    background: rgba(124,108,255,0.12);
+    color: var(--rondo-iris-light);
+    box-shadow: inset 0 0 0 1px rgba(124,108,255,0.2);
   }
 
-  /* Today column highlight — gold gradient, full-height subtle tint */
+  /* ── Today column — Iris gradient ── */
   .today-column {
-    background: linear-gradient(180deg, rgba(232,164,78,0.07) 0%, rgba(232,164,78,0.02) 50%, rgba(232,164,78,0.04) 100%);
+    background: linear-gradient(180deg, rgba(124,108,255,0.06) 0%, rgba(124,108,255,0.01) 50%, rgba(124,108,255,0.03) 100%);
   }
 
-  /* ── Day header today chip ── */
+  /* ── Day header today chip — Iris ── */
   .today-chip {
     @apply inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold tracking-wide;
-    background: rgba(232,164,78,0.18);
-    color: #e8a44e;
-    border-bottom: 2px solid rgba(232,164,78,0.5);
+    background: rgba(124,108,255,0.18);
+    color: var(--rondo-iris-light);
+    border-bottom: 2px solid rgba(124,108,255,0.5);
   }
 
-  /* ── Segmented control ── */
+  /* ── Segmented control — Iris ── */
   .seg-control {
     @apply flex items-center p-0.5 text-sm;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(124,108,255,0.03);
+    border: 1px solid rgba(124,108,255,0.06);
   }
   .seg-btn {
     @apply px-4 py-1.5 transition-all duration-200 text-gray-500 font-medium;
@@ -136,80 +179,80 @@
   }
   .seg-btn-active {
     @apply px-4 py-1.5 font-semibold transition-all duration-200;
-    background: rgba(232,164,78,0.12);
-    color: #e8a44e;
+    background: rgba(124,108,255,0.12);
+    color: var(--rondo-iris-light);
   }
 
-  /* ── ACP Session bars (diagonal stripe pattern) ── */
+  /* ── ACP Session bars — diagonal stripe ── */
   .session-bar-running {
     background: repeating-linear-gradient(
       -45deg,
-      rgba(245, 158, 11, 0.25),
-      rgba(245, 158, 11, 0.25) 3px,
-      rgba(245, 158, 11, 0.12) 3px,
-      rgba(245, 158, 11, 0.12) 6px
+      rgba(124,108,255,0.25),
+      rgba(124,108,255,0.25) 3px,
+      rgba(124,108,255,0.12) 3px,
+      rgba(124,108,255,0.12) 6px
     );
-    border: 1px solid rgba(245, 158, 11, 0.35);
+    border: 1px solid rgba(124,108,255,0.35);
     border-radius: 2px;
   }
 
   .session-bar-done {
     background: repeating-linear-gradient(
       -45deg,
-      rgba(232, 164, 78, 0.22),
-      rgba(232, 164, 78, 0.22) 3px,
-      rgba(232, 164, 78, 0.10) 3px,
-      rgba(232, 164, 78, 0.10) 6px
+      rgba(51,209,198,0.22),
+      rgba(51,209,198,0.22) 3px,
+      rgba(51,209,198,0.10) 3px,
+      rgba(51,209,198,0.10) 6px
     );
-    border: 1px solid rgba(232, 164, 78, 0.30);
+    border: 1px solid rgba(51,209,198,0.30);
     border-radius: 2px;
   }
 
   .session-bar-error {
     background: repeating-linear-gradient(
       -45deg,
-      rgba(244, 63, 94, 0.22),
-      rgba(244, 63, 94, 0.22) 3px,
-      rgba(244, 63, 94, 0.10) 3px,
-      rgba(244, 63, 94, 0.10) 6px
+      rgba(251,113,133,0.22),
+      rgba(251,113,133,0.22) 3px,
+      rgba(251,113,133,0.10) 3px,
+      rgba(251,113,133,0.10) 6px
     );
-    border: 1px solid rgba(244, 63, 94, 0.30);
+    border: 1px solid rgba(251,113,133,0.30);
     border-radius: 2px;
   }
 
   .session-bar-idle {
     background: repeating-linear-gradient(
       -45deg,
-      rgba(156, 163, 175, 0.18),
-      rgba(156, 163, 175, 0.18) 3px,
-      rgba(156, 163, 175, 0.08) 3px,
-      rgba(156, 163, 175, 0.08) 6px
+      rgba(156,163,175,0.18),
+      rgba(156,163,175,0.18) 3px,
+      rgba(156,163,175,0.08) 3px,
+      rgba(156,163,175,0.08) 6px
     );
-    border: 1px solid rgba(156, 163, 175, 0.25);
+    border: 1px solid rgba(156,163,175,0.25);
     border-radius: 2px;
   }
 
   .session-legend-swatch {
     background: repeating-linear-gradient(
       -45deg,
-      rgba(245, 158, 11, 0.5),
-      rgba(245, 158, 11, 0.5) 2px,
-      rgba(245, 158, 11, 0.2) 2px,
-      rgba(245, 158, 11, 0.2) 4px
+      rgba(124,108,255,0.5),
+      rgba(124,108,255,0.5) 2px,
+      rgba(124,108,255,0.2) 2px,
+      rgba(124,108,255,0.2) 4px
     );
-    border: 1px solid rgba(245, 158, 11, 0.4);
+    border: 1px solid rgba(124,108,255,0.4);
     width: 8px;
     height: 8px;
   }
 
-  /* ── Skeleton loading animation ── */
+  /* ── Skeleton loading ── */
   .skeleton {
     @apply rounded-md;
     background: linear-gradient(
       90deg,
-      rgba(255,255,255,0.03) 0%,
-      rgba(255,255,255,0.06) 50%,
-      rgba(255,255,255,0.03) 100%
+      rgba(124,108,255,0.03) 0%,
+      rgba(124,108,255,0.07) 50%,
+      rgba(124,108,255,0.03) 100%
     );
     background-size: 200% 100%;
     animation: shimmer 1.5s ease-in-out infinite;
@@ -220,25 +263,33 @@
     100% { background-position: -200% 0; }
   }
 
-  /* ── Event card color families (solid fills, Toggl-style with left accent) ── */
+  /* ═══════════════════════════════════════
+     Event Cards — Orchestral Palette
+     ═══════════════════════════════════════ */
   .ev-ok {
-    background: rgba(5, 150, 105, 0.85);
-    border: 1px solid rgba(16,185,129,0.3);
-    border-left: 3px solid #34d399;
+    background: rgba(51,209,198,0.80);
+    border: 1px solid rgba(51,209,198,0.3);
+    border-left: 3px solid var(--rondo-aqua);
   }
   .ev-error {
-    background: rgba(225, 29, 72, 0.85);
-    border: 1px solid rgba(244,63,94,0.4);
-    border-left: 3px solid #fb7185;
+    background: rgba(251,113,133,0.80);
+    border: 1px solid rgba(251,113,133,0.4);
+    border-left: 3px solid var(--rondo-error);
   }
   .ev-running {
-    background: rgba(8, 145, 178, 0.85);
-    border: 1px solid rgba(6,182,212,0.3);
-    border-left: 3px solid #22d3ee;
+    background: rgba(124,108,255,0.80);
+    border: 1px solid rgba(124,108,255,0.3);
+    border-left: 3px solid var(--rondo-iris);
   }
   .ev-default {
-    background: rgba(168, 110, 36, 0.85);
-    border: 1px solid rgba(232,164,78,0.3);
-    border-left: 3px solid #e8a44e;
+    background: rgba(200,169,107,0.80);
+    border: 1px solid rgba(200,169,107,0.3);
+    border-left: 3px solid var(--rondo-brass);
+  }
+
+  /* ── Now indicator — Aqua Pulse ── */
+  .now-indicator {
+    background: var(--rondo-aqua);
+    box-shadow: 0 0 8px rgba(51,209,198,0.5);
   }
 }

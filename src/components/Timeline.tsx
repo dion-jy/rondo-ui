@@ -150,7 +150,7 @@ function SessionDetailOverlay({ session, onClose }: { session: ACPSession; onClo
   };
 
   const barColor = (s?: string) => {
-    if (s === "running" || s === "active") return "bg-amber-500";
+    if (s === "running" || s === "active") return "bg-accent";
     if (s === "error") return "bg-rose-500";
     if (s === "done") return "bg-accent";
     return "bg-gray-600";
@@ -164,8 +164,8 @@ function SessionDetailOverlay({ session, onClose }: { session: ACPSession; onClo
 
         <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center flex-shrink-0">
-              <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="w-8 h-8 rounded-lg bg-accent/15 flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
               </svg>
             </div>
@@ -251,13 +251,13 @@ function LayerToggle({
       <button
         onClick={() => onToggle("sessions")}
         className={`flex items-center gap-1 px-2 py-1 text-[10px] transition-colors ${
-          layers.sessions ? "bg-amber-600/20 text-amber-300" : "text-gray-600 hover:text-gray-400"
+          layers.sessions ? "bg-accent-aqua/15 text-accent-aqua" : "text-gray-600 hover:text-gray-400"
         }`}
       >
-        <span className={`w-1.5 h-1.5 rounded-full ${layers.sessions ? "bg-amber-400" : "bg-gray-700"}`} />
+        <span className={`w-1.5 h-1.5 rounded-full ${layers.sessions ? "bg-accent-aqua" : "bg-gray-700"}`} />
         Sessions
         {sessionCount > 0 && layers.sessions && (
-          <span className="ml-0.5 bg-amber-500/20 text-amber-300 rounded-full px-1 text-[9px]">{sessionCount}</span>
+          <span className="ml-0.5 bg-accent/20 text-amber-300 rounded-full px-1 text-[9px]">{sessionCount}</span>
         )}
       </button>
     </div>
@@ -538,8 +538,8 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                         style={{ top: `${nowTop}px` }}
                       >
                         <div className="relative flex items-center">
-                          <span className="w-2 h-2 rounded-full bg-accent-rose -ml-1 shadow-[0_0_8px_rgba(232,92,138,0.6)]" />
-                          <div className="flex-1 h-[1.5px] bg-accent-rose/60" />
+                          <span className="w-2 h-2 rounded-full bg-accent-aqua -ml-1 shadow-[0_0_8px_rgba(51,209,198,0.6)]" />
+                          <div className="flex-1 h-[1.5px] bg-accent-aqua/60" />
                         </div>
                       </div>
                     )}
@@ -564,8 +564,8 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                           title={`${sb.session.label ?? sb.session.key} \u00B7 ${sb.session.status ?? "unknown"}${sb.session.duration ? ` \u00B7 ${sb.session.duration}` : ""}`}
                         >
                           {showLabel && (
-                            <span className="block px-1.5 text-[9px] leading-tight font-medium truncate drop-shadow-sm text-amber-100/90">
-                              {isRunning && <span className="inline-block w-1 h-1 rounded-full bg-amber-300 animate-pulse mr-1 align-middle" />}
+                            <span className="block px-1.5 text-[9px] leading-tight font-medium truncate drop-shadow-sm text-white/90">
+                              {isRunning && <span className="inline-block w-1 h-1 rounded-full bg-accent-aqua animate-pulse mr-1 align-middle" />}
                               {sb.session.label ?? sb.session.key}
                             </span>
                           )}
