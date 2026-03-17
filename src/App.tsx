@@ -3,6 +3,8 @@ import { useJobs, useRuns, useStats, useSessions, isConfigured } from "./hooks/u
 import { Stats } from "./components/Stats";
 import { Timeline } from "./components/Timeline";
 import { ExecutionLog } from "./components/ExecutionLog";
+import { JobList } from "./components/JobList";
+import { ACPSessions } from "./components/ACPSessions";
 
 function RondoLogo() {
   return (
@@ -28,8 +30,8 @@ function RondoLogo() {
 }
 
 export function App() {
-  const [selectedJobId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"calendar" | "logs">("calendar");
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"calendar" | "jobs">("calendar");
   const { jobs, loading: jobsLoading, error: jobsError } = useJobs();
   const { runs, loading: runsLoading, error: runsError } = useRuns(undefined, 200);
   const { sessions } = useSessions();
@@ -60,11 +62,10 @@ export function App() {
 
   return (
     <div className="h-screen flex flex-col pb-14 md:pb-0 overflow-hidden">
-      {/* Header — slim, flat */}
+      {/* Header */}
       <header className="border-b border-border bg-surface z-30 shrink-0">
         <div className="flex items-center justify-between px-4 md:px-6 py-2">
           <RondoLogo />
-          {/* Desktop tab switcher */}
           <div className="hidden md:flex items-center gap-3">
             <div className="seg-control">
               <button
@@ -74,10 +75,10 @@ export function App() {
                 Calendar
               </button>
               <button
-                onClick={() => setActiveTab("logs")}
-                className={activeTab === "logs" ? "seg-btn-active" : "seg-btn"}
+                onClick={() => setActiveTab("jobs")}
+                className={activeTab === "jobs" ? "seg-btn-active" : "seg-btn"}
               >
-                Logs
+                Jobs
               </button>
             </div>
             {loading && (
@@ -96,7 +97,7 @@ export function App() {
         </div>
       </header>
 
-      {/* Main content — full-bleed for calendar */}
+      {/* Main */}
       <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {loading && runs.length === 0 ? (
           <div className="flex-1 flex flex-col gap-4 p-6 animate-fade-in">
@@ -115,9 +116,26 @@ export function App() {
         ) : activeTab === "calendar" ? (
           <Timeline runs={runs} jobs={jobs} sessions={sessions} />
         ) : (
-          <div className="px-4 md:px-6 py-6 space-y-5 max-w-[1400px] mx-auto overflow-auto flex-1">
+          <div className="px-4 md:px-6 py-5 space-y-5 max-w-[1400px] mx-auto overflow-auto flex-1">
+            {/* Stats summary */}
             <Stats stats={stats} />
-            <ExecutionLog runs={runs} jobs={jobs} selectedJobId={selectedJobId} />
+
+            {/* Job list + ACP Sessions side by side on desktop */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2">
+                <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Cron Jobs</h2>
+                <JobList jobs={jobs} selectedJobId={selectedJobId} onSelect={setSelectedJobId} />
+              </div>
+              <div>
+                <ACPSessions />
+              </div>
+            </div>
+
+            {/* Execution log below */}
+            <div>
+              <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Execution Log</h2>
+              <ExecutionLog runs={runs} jobs={jobs} selectedJobId={selectedJobId} />
+            </div>
           </div>
         )}
       </main>
@@ -137,15 +155,15 @@ export function App() {
             Calendar
           </button>
           <button
-            onClick={() => setActiveTab("logs")}
+            onClick={() => setActiveTab("jobs")}
             className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition-colors ${
-              activeTab === "logs" ? "text-accent" : "text-gray-600"
+              activeTab === "jobs" ? "text-accent" : "text-gray-600"
             }`}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
             </svg>
-            Logs
+            Jobs
           </button>
         </div>
       </nav>
