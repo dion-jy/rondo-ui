@@ -581,10 +581,10 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                       const left = e.col * width;
                       const label = jobNameMap.get(e.run.job_id) ?? e.run.action ?? "";
                       const dur = formatDuration(e.run.duration_ms);
-                      const showTitle = height >= 22;
+                      const showTitle = height >= 12;
                       const showMeta = height >= 38;
                       const showDuration = height >= 52;
-                      const showDot = !showTitle && height >= 8;
+                      const showDot = !showTitle && height >= 6;
 
                       return (
                         <button
@@ -597,12 +597,12 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                             left: `calc(${left}% + 2px)`,
                             width: `calc(${width}% - 4px)`,
                             zIndex: 2,
-                            padding: showTitle ? "3px 6px" : undefined,
+                            padding: showTitle ? "1px 4px" : undefined,
                           }}
                           title={`${e.run.status} \u00B7 ${new Date(e.run.timestamp).toLocaleString()}\n${e.run.summary ?? ""}`}
                         >
                           {showTitle && (
-                            <span className="block text-[10px] leading-tight text-white font-semibold truncate">
+                            <span className="block text-[9px] leading-none text-white font-semibold truncate overflow-hidden whitespace-nowrap">
                               {label}
                             </span>
                           )}
