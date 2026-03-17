@@ -20,11 +20,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+          cache: yarn
 
-      - run: npm ci
+      - run: yarn install --frozen-lockfile
 
-      - run: npm run build
+      - run: yarn build
 
       - name: Deploy to Vercel (Preview)
         id: deploy
@@ -53,11 +53,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+          cache: yarn
 
-      - run: npm ci
+      - run: yarn install --frozen-lockfile
 
-      - run: npm run build
+      - run: yarn build
 
       - name: Deploy to Vercel (Production)
         run: |
