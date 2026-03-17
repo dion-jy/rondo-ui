@@ -21,7 +21,7 @@ export function useJobs(refreshIntervalMs = 30_000) {
   const [jobs, setJobs] = useState<CronJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchJobs = useCallback(async () => {
     const client = getClient();
@@ -50,7 +50,9 @@ export function useJobs(refreshIntervalMs = 30_000) {
   useEffect(() => {
     fetchJobs();
     timerRef.current = setInterval(fetchJobs, refreshIntervalMs);
-    return () => clearInterval(timerRef.current);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [fetchJobs, refreshIntervalMs]);
 
   return { jobs, loading, error, refetch: fetchJobs };
