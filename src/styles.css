@@ -220,6 +220,12 @@
     border-radius: 2px;
   }
 
+  .session-bar-scheduled {
+    background: rgba(51, 209, 198, 0.06);
+    border: 1px dashed rgba(51, 209, 198, 0.35);
+    border-radius: 3px;
+  }
+
   .session-bar-idle {
     background: repeating-linear-gradient(
       -45deg,

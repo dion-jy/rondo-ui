@@ -59,6 +59,7 @@ function evClass(status: string) {
 }
 
 function sessionStatusColor(status?: string) {
+  if (status === "scheduled") return "session-bar-scheduled";
   if (status === "running" || status === "active") return "session-bar-running";
   if (status === "error") return "session-bar-error";
   if (status === "done") return "session-bar-done";
@@ -139,6 +140,68 @@ function generateScheduledRuns(jobs: CronJob[], dayStartMs: number, dayEndMs: nu
           output_tokens: null,
           total_tokens: null,
           synced_at: "",
+        });
+        count++;
+      }
+      cursor += intervalMs;
+    }
+  }
+
+  return projections;
+}
+
+/**
+ * Generate projected future ACP sessions for cron jobs with session_target="isolated".
+ */
+function generateScheduledSessions(jobs: CronJob[], dayStartMs: number, dayEndMs: number): SessionBox[] {
+  const now = Date.now();
+  if (dayEndMs <= now) return [];
+
+  const projections: SessionBox[] = [];
+
+  for (const job of jobs) {
+    if (!job.enabled || job.session_target !== "isolated") continue;
+
+    let intervalMs = 0;
+    if (job.schedule_kind === "every" && job.schedule_every_ms) {
+      intervalMs = job.schedule_every_ms;
+    } else if (job.schedule_kind === "cron" && job.schedule_expr) {
+      const parts = (job.schedule_expr || "").split(/\s+/);
+      if (parts.length >= 5) {
+        const minPart = parts[0];
+        if (minPart.startsWith("*/")) {
+          intervalMs = parseInt(minPart.slice(2)) * 60_000;
+        } else {
+          intervalMs = 60 * 60_000;
+        }
+      }
+    }
+
+    if (intervalMs <= 0) continue;
+
+    let cursor = 0;
+    if (job.next_run_at) {
+      cursor = new Date(job.next_run_at).getTime();
+    } else if (job.last_run_at) {
+      cursor = new Date(job.last_run_at).getTime() + intervalMs;
+    } else {
+      continue;
+    }
+
+    let count = 0;
+    while (cursor < dayEndMs && count < 20) {
+      if (cursor >= Math.max(dayStartMs, now)) {
+        const estDuration = job.last_duration_ms ?? 60_000;
+        projections.push({
+          session: {
+            key: `scheduled-acp-${job.id}-${cursor}`,
+            label: job.name,
+            status: "scheduled",
+            startedAt: cursor,
+            updatedAt: cursor + estDuration,
+          },
+          startMs: cursor,
+          endMs: cursor + estDuration,
         });
         count++;
       }
@@ -626,12 +689,16 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                 const dayEndMs = dayStartMs + DAY_MS;
                 const today = isToday(day);
 
-                const sessionBoxes = layers.sessions
+                const realSessionBoxes = layers.sessions
                   ? visibleSessions
                       .map((s) => getSessionTimeRange(s, dayStartMs, dayEndMs))
                       .filter((b): b is SessionBox => b !== null)
                       .filter((b) => b.endMs - b.startMs >= 30_000) // filter failed spawns (<30s)
                   : [];
+                const scheduledSessionBoxes = layers.sessions
+                  ? generateScheduledSessions(jobs, dayStartMs, dayEndMs)
+                  : [];
+                const sessionBoxes = [...realSessionBoxes, ...scheduledSessionBoxes];
 
                 const dayRuns = layers.cron
                   ? visibleRuns.filter((r) => {
@@ -671,12 +738,13 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                       const height = Math.max(((sb.endMs - sb.startMs) / DAY_MS) * totalHeight, 6);
                       const showLabel = height >= 18;
                       const isRunning = sb.session.status === "running" || sb.session.status === "active";
+                      const isScheduled = sb.session.status === "scheduled";
 
                       return (
                         <button
                           key={sb.session.key}
-                          onClick={() => setSelectedSession(sb.session)}
-                          className={`absolute cursor-pointer transition-all duration-150 hover:brightness-125 ${sessionStatusColor(sb.session.status)}`}
+                          onClick={() => !isScheduled && setSelectedSession(sb.session)}
+                          className={`absolute ${isScheduled ? "cursor-default" : "cursor-pointer"} transition-all duration-150 hover:brightness-125 ${sessionStatusColor(sb.session.status)}`}
                           style={{
                             top: `${top}px`,
                             height: `${height}px`,
@@ -687,8 +755,9 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                           title={`${sb.session.label ?? sb.session.key} \u00B7 ${sb.session.status ?? "unknown"}${sb.session.duration ? ` \u00B7 ${sb.session.duration}` : ""}`}
                         >
                           {showLabel && (
-                            <span className="block px-1.5 text-[9px] leading-tight font-medium truncate drop-shadow-sm text-white/90">
+                            <span className={`block px-1.5 text-[9px] leading-tight font-medium truncate drop-shadow-sm ${isScheduled ? "text-accent-aqua/70" : "text-white/90"}`}>
                               {isRunning && <span className="inline-block w-1 h-1 rounded-full bg-accent-aqua animate-pulse mr-1 align-middle" />}
+                              {isScheduled && "⏱ "}
                               {sb.session.label ?? sb.session.key}
                             </span>
                           )}
