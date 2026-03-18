@@ -752,7 +752,7 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                             width: "28%",
                             zIndex: 1,
                           }}
-                          title={`${sb.session.label ?? sb.session.key} \u00B7 ${sb.session.status ?? "unknown"}${sb.session.duration ? ` \u00B7 ${sb.session.duration}` : ""}`}
+                          title={`${sb.session.label ?? sb.session.key} · ${sb.session.status ?? "unknown"}${sb.session.duration ? ` · ${sb.session.duration}` : ""}${sb.session.agent ? ` · ${sb.session.agent}` : ""}${isScheduled ? " (projected)" : ""}`}
                         >
                           {showLabel && (
                             <span className={`block px-1.5 text-[9px] leading-tight font-medium truncate drop-shadow-sm ${isScheduled ? "text-accent-aqua/70" : "text-white/90"}`}>
