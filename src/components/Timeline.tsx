@@ -149,6 +149,8 @@ function generateScheduledRuns(jobs: CronJob[], dayStartMs: number, dayEndMs: nu
 }
 
 function layoutOverlaps(dayRuns: CronRun[], dayStartMs: number): EventBox[] {
+  if (dayRuns.length === 0) return [];
+
   const items = dayRuns
     .map((run) => {
       const endMs = new Date(run.timestamp).getTime();
@@ -158,27 +160,55 @@ function layoutOverlaps(dayRuns: CronRun[], dayStartMs: number): EventBox[] {
     })
     .sort((a, b) => a.startMs - b.startMs);
 
-  const active: { endMs: number; col: number }[] = [];
+  // 1. Build collision groups (connected components of overlapping events)
+  const groups: (typeof items)[] = [];
+  let currentGroup: typeof items = [items[0]];
+  let groupEnd = items[0].endMs;
+
+  for (let i = 1; i < items.length; i++) {
+    if (items[i].startMs < groupEnd) {
+      // Overlaps with current group
+      currentGroup.push(items[i]);
+      groupEnd = Math.max(groupEnd, items[i].endMs);
+    } else {
+      groups.push(currentGroup);
+      currentGroup = [items[i]];
+      groupEnd = items[i].endMs;
+    }
+  }
+  groups.push(currentGroup);
+
+  // 2. Within each group, assign columns greedily
   const out: EventBox[] = [];
 
-  for (const it of items) {
-    for (let i = active.length - 1; i >= 0; i--) {
-      if (active[i].endMs <= it.startMs) active.splice(i, 1);
+  for (const group of groups) {
+    const active: { endMs: number; col: number }[] = [];
+    let maxCol = 0;
+
+    const assigned: { item: typeof items[0]; col: number }[] = [];
+
+    for (const it of group) {
+      // Expire events that ended before this one starts
+      for (let i = active.length - 1; i >= 0; i--) {
+        if (active[i].endMs <= it.startMs) active.splice(i, 1);
+      }
+
+      let col = 0;
+      while (active.some((a) => a.col === col)) col++;
+      active.push({ endMs: it.endMs, col });
+      maxCol = Math.max(maxCol, col);
+
+      assigned.push({ item: it, col });
     }
 
-    let col = 0;
-    while (active.some((a) => a.col === col)) col++;
-    active.push({ endMs: it.endMs, col });
-
-    const colCount = Math.max(...active.map((a) => a.col)) + 1;
-    out.push({ ...it, col, colCount });
+    // All events in the group share the same colCount
+    const colCount = maxCol + 1;
+    for (const { item, col } of assigned) {
+      out.push({ ...item, col, colCount });
+    }
   }
 
-  return out.map((e) => {
-    const overlap = out.filter((o) => !(o.endMs <= e.startMs || o.startMs >= e.endMs));
-    const count = Math.max(...overlap.map((o) => o.col)) + 1;
-    return { ...e, colCount: Math.max(1, count) };
-  });
+  return out;
 }
 
 function getSessionTimeRange(session: ACPSession, dayStartMs: number, dayEndMs: number): SessionBox | null {
