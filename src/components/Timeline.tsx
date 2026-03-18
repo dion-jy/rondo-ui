@@ -53,6 +53,7 @@ function evClass(status: string) {
   if (status === "ok") return "ev-ok";
   if (status === "error") return "ev-error";
   if (status === "running") return "ev-running";
+  if (status === "scheduled") return "ev-scheduled";
   return "ev-default";
 }
 
@@ -68,6 +69,83 @@ function formatDuration(ms: number | null): string {
   if (ms < 1000) return `${ms}ms`;
   if (ms < 60_000) return `${(ms / 1000).toFixed(0)}s`;
   return `${(ms / 60_000).toFixed(1)}m`;
+}
+
+/**
+ * Generate projected future runs for enabled cron jobs within a time window.
+ * Returns synthetic CronRun objects with status="scheduled".
+ */
+function generateScheduledRuns(jobs: CronJob[], dayStartMs: number, dayEndMs: number): CronRun[] {
+  const now = Date.now();
+  // Only show future projections
+  if (dayEndMs <= now) return [];
+
+  const projections: CronRun[] = [];
+
+  for (const job of jobs) {
+    if (!job.enabled) continue;
+
+    let intervalMs = 0;
+    if (job.schedule_kind === "every" && job.schedule_every_ms) {
+      intervalMs = job.schedule_every_ms;
+    } else if (job.schedule_kind === "cron" && job.schedule_expr) {
+      // Simple heuristic for common cron patterns
+      const parts = (job.schedule_expr || "").split(/\s+/);
+      if (parts.length >= 5) {
+        const minPart = parts[0];
+        if (minPart.startsWith("*/")) {
+          intervalMs = parseInt(minPart.slice(2)) * 60_000;
+        } else {
+          // Hourly-ish default for standard cron
+          intervalMs = 60 * 60_000;
+        }
+      }
+    }
+
+    if (intervalMs <= 0) continue;
+
+    // Start from next_run_at or last_run_at + interval
+    let cursor = 0;
+    if (job.next_run_at) {
+      cursor = new Date(job.next_run_at).getTime();
+    } else if (job.last_run_at) {
+      cursor = new Date(job.last_run_at).getTime() + intervalMs;
+    } else {
+      continue;
+    }
+
+    // Walk forward until past dayEndMs, max 50 per job
+    let count = 0;
+    while (cursor < dayEndMs && count < 50) {
+      if (cursor >= Math.max(dayStartMs, now)) {
+        const avgDuration = job.last_duration_ms ?? 30_000;
+        projections.push({
+          id: `scheduled-${job.id}-${cursor}`,
+          instance_id: "",
+          job_id: job.id,
+          timestamp: new Date(cursor + avgDuration).toISOString(),
+          status: "scheduled",
+          action: job.name,
+          summary: null,
+          error: null,
+          duration_ms: avgDuration,
+          model: job.payload_model,
+          provider: null,
+          session_id: null,
+          delivered: null,
+          delivery_status: null,
+          input_tokens: null,
+          output_tokens: null,
+          total_tokens: null,
+          synced_at: "",
+        });
+        count++;
+      }
+      cursor += intervalMs;
+    }
+  }
+
+  return projections;
 }
 
 function layoutOverlaps(dayRuns: CronRun[], dayStartMs: number): EventBox[] {
@@ -522,7 +600,11 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                       return ts >= dayStartMs && ts < dayEndMs;
                     })
                   : [];
-                const events = layoutOverlaps(dayRuns, dayStartMs);
+                const scheduledRuns = layers.cron
+                  ? generateScheduledRuns(jobs, dayStartMs, dayEndMs)
+                  : [];
+                const allDayRuns = [...dayRuns, ...scheduledRuns];
+                const events = layoutOverlaps(allDayRuns, dayStartMs);
 
                 return (
                   <div key={day.toISOString()} className={`relative border-r border-white/[0.03] ${today ? "today-column" : ""}`}>

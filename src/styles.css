@@ -287,6 +287,18 @@
     border-left: 3px solid var(--rondo-brass);
   }
 
+  /* Scheduled (future projected) — dashed border, translucent */
+  .ev-scheduled {
+    background: rgba(124,108,255,0.15);
+    border: 1px dashed rgba(124,108,255,0.35);
+    border-left: 3px dashed var(--rondo-iris);
+    opacity: 0.7;
+  }
+  .ev-scheduled:hover {
+    opacity: 1;
+    background: rgba(124,108,255,0.25);
+  }
+
   /* ── Now indicator — Aqua Pulse ── */
   .now-indicator {
     background: var(--rondo-aqua);
