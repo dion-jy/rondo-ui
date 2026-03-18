@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useJobs, useRuns, useStats, useSessions, isConfigured } from "./hooks/useSupabase";
 import { Stats } from "./components/Stats";
 import { Timeline } from "./components/Timeline";
@@ -29,12 +29,67 @@ function RondoLogo() {
   );
 }
 
+const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || "http://192.168.0.130:18789";
+const GATEWAY_TOKEN = import.meta.env.VITE_GATEWAY_TOKEN || "rondo-sync-2026";
+
+function SyncButton({ onSynced }: { onSynced?: () => void }) {
+  const [state, setState] = useState<"idle" | "loading" | "done">("idle");
+
+  const handleSync = useCallback(async () => {
+    if (state === "loading") return;
+    setState("loading");
+    try {
+      await fetch(`${GATEWAY_URL}/hooks/wake`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${GATEWAY_TOKEN}`,
+        },
+        body: JSON.stringify({ text: "rondo sync trigger", mode: "now" }),
+      });
+    } catch {
+      // fire-and-forget — gateway may not respond with CORS
+    }
+    // Wait 2s for sync to complete, then refetch
+    setTimeout(() => {
+      setState("done");
+      onSynced?.();
+      setTimeout(() => setState("idle"), 1500);
+    }, 2000);
+  }, [state, onSynced]);
+
+  return (
+    <button
+      onClick={handleSync}
+      disabled={state === "loading"}
+      className="flex items-center gap-1.5 px-2 py-1 text-[11px] text-gray-500 hover:text-accent hover:bg-accent/5 rounded-md transition-all disabled:opacity-50"
+      title="Trigger gateway sync"
+    >
+      {state === "loading" ? (
+        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+      ) : state === "done" ? (
+        <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      ) : (
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
+        </svg>
+      )}
+      {state === "done" ? "Synced!" : "Sync"}
+    </button>
+  );
+}
+
 export function App() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"calendar" | "jobs">("calendar");
   const { jobs, loading: jobsLoading, error: jobsError } = useJobs();
   const { runs, loading: runsLoading, error: runsError } = useRuns(undefined, 200);
-  const { sessions } = useSessions();
+  const { sessions, refetch: refetchSessions } = useSessions();
   const stats = useStats(jobs, runs);
 
   if (!isConfigured()) {
@@ -81,6 +136,7 @@ export function App() {
                 Jobs
               </button>
             </div>
+            <SyncButton onSynced={refetchSessions} />
             {loading && (
               <span className="flex items-center gap-1.5 text-xs text-gray-600">
                 <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
