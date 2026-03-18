@@ -166,8 +166,8 @@ function layoutOverlaps(dayRuns: CronRun[], dayStartMs: number): EventBox[] {
   let groupEnd = items[0].endMs;
 
   for (let i = 1; i < items.length; i++) {
-    if (items[i].startMs < groupEnd) {
-      // Overlaps with current group
+    if (items[i].startMs <= groupEnd) {
+      // Overlaps with current group (includes same-time events)
       currentGroup.push(items[i]);
       groupEnd = Math.max(groupEnd, items[i].endMs);
     } else {
@@ -188,9 +188,9 @@ function layoutOverlaps(dayRuns: CronRun[], dayStartMs: number): EventBox[] {
     const assigned: { item: typeof items[0]; col: number }[] = [];
 
     for (const it of group) {
-      // Expire events that ended before this one starts
+      // Expire events that ended before this one starts (strict < to handle same-time events)
       for (let i = active.length - 1; i >= 0; i--) {
-        if (active[i].endMs <= it.startMs) active.splice(i, 1);
+        if (active[i].endMs < it.startMs) active.splice(i, 1);
       }
 
       let col = 0;
