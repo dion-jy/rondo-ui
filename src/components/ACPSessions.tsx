@@ -1,12 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-
-type SessionItem = {
-  key: string;
-  label?: string;
-  agent?: string;
-  status?: string;
-  updatedAt?: string;
-};
+import { useMemo } from "react";
+import { useSessions } from "../hooks/useSupabase";
+import type { ACPSession } from "../types";
 
 function statusDot(status?: string) {
   if (status === "active" || status === "running") return "bg-emerald-400 animate-pulse";
@@ -22,9 +16,9 @@ function statusLabel(status?: string) {
   return "Idle";
 }
 
-function timeAgo(dateStr?: string): string {
-  if (!dateStr) return "";
-  const diff = Date.now() - new Date(dateStr).getTime();
+function timeAgo(ts?: number): string {
+  if (!ts) return "";
+  const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60_000);
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
@@ -34,44 +28,11 @@ function timeAgo(dateStr?: string): string {
 }
 
 export function ACPSessions() {
-  const [items, setItems] = useState<SessionItem[]>([]);
-  const [hasError, setHasError] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-
-    const fetchSessions = async () => {
-      try {
-        const res = await fetch("/api/sessions");
-        const ct = res.headers.get("content-type") || "";
-
-        if (!res.ok || !ct.includes("application/json")) {
-          throw new Error("unavailable");
-        }
-
-        const data = await res.json();
-        if (!alive) return;
-        const normalized = Array.isArray(data) ? data : data.sessions ?? [];
-        setItems(normalized);
-        setHasError(false);
-      } catch {
-        if (!alive) return;
-        setItems([]);
-        setHasError(true);
-      }
-    };
-
-    fetchSessions();
-    const t = setInterval(fetchSessions, 30000);
-    return () => {
-      alive = false;
-      clearInterval(t);
-    };
-  }, []);
+  const { sessions, loading, error } = useSessions();
 
   const sorted = useMemo(
-    () => [...items].sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "")),
-    [items]
+    () => [...sessions].sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)),
+    [sessions]
   );
 
   return (
@@ -83,21 +44,7 @@ export function ACPSessions() {
         )}
       </div>
 
-      {hasError && (
-        <div className="flex items-center gap-3 py-6 px-2">
-          <div className="w-8 h-8 rounded-lg bg-surface-raised flex items-center justify-center flex-shrink-0">
-            <svg className="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-1.135a4.5 4.5 0 00-1.242-7.244l4.5-4.5a4.5 4.5 0 016.364 6.364l-1.757 1.757" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400">Waiting for connection</p>
-            <p className="text-[10px] text-gray-600 mt-0.5">Sessions appear once the agent API is active</p>
-          </div>
-        </div>
-      )}
-
-      {!hasError && sorted.length === 0 && (
+      {(error || (!loading && sorted.length === 0)) && (
         <div className="flex items-center gap-3 py-6 px-2">
           <div className="w-8 h-8 rounded-lg bg-surface-raised flex items-center justify-center flex-shrink-0">
             <svg className="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -105,8 +52,8 @@ export function ACPSessions() {
             </svg>
           </div>
           <div>
-            <p className="text-xs text-gray-400">No active sessions</p>
-            <p className="text-[10px] text-gray-600 mt-0.5">Agent sessions will show here when running</p>
+            <p className="text-xs text-gray-400">{error ? "Connection error" : "No sessions"}</p>
+            <p className="text-[10px] text-gray-600 mt-0.5">{error ?? "Agent sessions will show here when running"}</p>
           </div>
         </div>
       )}
