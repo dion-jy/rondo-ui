@@ -73,6 +73,11 @@ function formatDuration(ms: number | null): string {
   return `${(ms / 60_000).toFixed(1)}m`;
 }
 
+function formatTimeShort(ms: number): string {
+  const d = new Date(ms);
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 /**
  * Generate projected future runs for enabled cron jobs within a time window.
  * Returns synthetic CronRun objects with status="scheduled".
@@ -282,7 +287,13 @@ function layoutOverlaps(dayRuns: CronRun[], dayStartMs: number): EventBox[] {
   return out;
 }
 
-function getSessionTimeRange(session: ACPSession, dayStartMs: number, dayEndMs: number): SessionBox | null {
+type SessionBoxExt = SessionBox & {
+  clampedTop: boolean;
+  clampedBottom: boolean;
+  isLong: boolean; // >4h
+};
+
+function getSessionTimeRange(session: ACPSession, dayStartMs: number, dayEndMs: number): SessionBoxExt | null {
   const startMs = session.startedAt ?? session.updatedAt ?? 0;
   if (startMs === 0) return null;
 
@@ -297,7 +308,14 @@ function getSessionTimeRange(session: ACPSession, dayStartMs: number, dayEndMs: 
   const clampedEnd = Math.min(endMs, dayEndMs);
   if (clampedStart >= clampedEnd) return null;
 
-  return { session, startMs: clampedStart, endMs: clampedEnd };
+  return {
+    session,
+    startMs: clampedStart,
+    endMs: clampedEnd,
+    clampedTop: startMs < dayStartMs,
+    clampedBottom: endMs > dayEndMs,
+    isLong: (clampedEnd - clampedStart) > 4 * 3600_000,
+  };
 }
 
 function isToday(d: Date): boolean {
@@ -564,8 +582,8 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* ── Toolbar — flat, edge-to-edge ── */}
-      <div className="flex items-center justify-between gap-2 px-3 md:px-6 py-1.5 md:py-2 border-b border-white/[0.04] overflow-x-auto shrink-0">
-        <div className="flex items-center gap-3 shrink-0">
+      <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 px-2 sm:px-3 md:px-6 py-1.5 md:py-2 border-b border-white/[0.04] shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Status legend — desktop only */}
           <div className="hidden lg:flex items-center gap-2 text-[10px] text-gray-600">
             {layers.cron && (
@@ -583,7 +601,23 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
           <LayerToggle layers={layers} onToggle={toggleLayer} sessionCount={visibleSessions.length} />
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Jump to now */}
+          <button
+            onClick={() => {
+              if (scrollRef.current) {
+                const currentHour = new Date().getHours() + new Date().getMinutes() / 60;
+                const targetTop = currentHour * hourHeight - scrollRef.current.clientHeight / 3;
+                scrollRef.current.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+              }
+            }}
+            className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-600 hover:text-accent-aqua hover:bg-accent-aqua/10 transition-colors"
+            title="Jump to now (T)"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-accent-aqua" />
+            Now
+          </button>
+
           {/* Zoom */}
           <div className="flex items-center gap-0.5">
             <button
@@ -610,13 +644,28 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
             >+</button>
           </div>
 
+          {/* Jump to now */}
+          <button
+            onClick={() => {
+              if (scrollRef.current) {
+                const ch = new Date().getHours() + new Date().getMinutes() / 60;
+                const tt = ch * hourHeight - scrollRef.current.clientHeight / 3;
+                scrollRef.current.scrollTo({ top: Math.max(0, tt), behavior: "smooth" });
+              }
+            }}
+            className="w-8 h-8 md:w-7 md:h-7 flex items-center justify-center text-gray-600 hover:text-accent-aqua hover:bg-accent-aqua/5 active:bg-accent-aqua/10 text-[10px] font-bold transition-colors"
+            title="Jump to now (T)"
+          >
+            Now
+          </button>
+
           {/* Day range — flat selector */}
           <div className="flex items-center bg-white/[0.02] p-0.5">
             {([1, 3, 5] as const).map((d) => (
               <button
                 key={d}
                 onClick={() => setOffset(d)}
-                className={`px-2.5 py-1 text-[11px] font-medium transition-all ${
+                className={`px-2 sm:px-2.5 py-1 text-[11px] font-medium transition-all ${
                   offset === d
                     ? "bg-accent/12 text-accent"
                     : "text-gray-600 hover:text-gray-300 active:text-white"
@@ -631,15 +680,15 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
 
       {/* ── Calendar grid — fills remaining viewport ── */}
       <div ref={scrollRef} className="overflow-auto flex-1 min-h-0">
-        <div className="min-w-[600px]">
+        <div className="min-w-[320px] sm:min-w-[600px]">
           {/* ── Day strip header ── */}
           <div className="sticky top-0 z-20 flex border-b border-white/[0.04] bg-surface/95 backdrop-blur-lg">
             {/* Time corner */}
-            <div className="sticky left-0 self-start z-40 w-10 shrink-0 border-r border-white/[0.04] bg-surface/95 px-1 py-2 text-[9px] text-gray-700 font-medium text-center select-none">
+            <div className="sticky left-0 self-start z-40 w-8 sm:w-10 shrink-0 border-r border-white/[0.04] bg-surface/95 px-0.5 sm:px-1 py-2 text-[9px] text-gray-700 font-medium text-center select-none">
               HR
             </div>
             {/* Day chips */}
-            <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${dayColumns.length}, minmax(100px,1fr))` }}>
+            <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${dayColumns.length}, minmax(80px,1fr))` }}>
               {dayColumns.map((day) => {
                 const today = isToday(day);
                 const weekday = day.toLocaleDateString(undefined, { weekday: "short" });
@@ -647,16 +696,16 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                 return (
                   <div
                     key={day.toISOString()}
-                    className="border-r border-white/[0.04] px-2 py-1.5 flex items-center gap-1.5"
+                    className="border-r border-white/[0.04] px-1 sm:px-2 py-1 sm:py-1.5 flex items-center gap-1 sm:gap-1.5"
                   >
-                    <span className={`text-[11px] font-medium ${today ? "text-accent" : "text-gray-600"}`}>
+                    <span className={`text-[10px] sm:text-[11px] font-medium ${today ? "text-accent" : "text-gray-600"}`}>
                       {weekday}
                     </span>
                     <span
                       className={
                         today
                           ? "today-chip"
-                          : "text-[11px] text-gray-400 font-semibold"
+                          : "text-[10px] sm:text-[11px] text-gray-400 font-semibold"
                       }
                     >
                       {dateNum}
@@ -670,11 +719,11 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
           {/* ── Grid body ── */}
           <div className="relative flex" style={{ height: totalHeight }}>
             {/* Sticky time axis */}
-            <div className="sticky left-0 self-start z-30 w-10 shrink-0 border-r border-white/[0.04] bg-surface/95">
+            <div className="sticky left-0 self-start z-30 w-8 sm:w-10 shrink-0 border-r border-white/[0.04] bg-surface/95">
               {Array.from({ length: 25 }, (_, i) => (
                 <div
                   key={i}
-                  className="absolute left-0 w-10 -translate-y-1/2 text-[9px] text-gray-700 text-right pr-1.5 select-none tabular-nums"
+                  className="absolute left-0 w-8 sm:w-10 -translate-y-1/2 text-[9px] text-gray-700 text-right pr-1 sm:pr-1.5 select-none tabular-nums"
                   style={{ top: i * hourHeight }}
                 >
                   {String(i % 24).padStart(2, "0")}
@@ -683,20 +732,22 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
             </div>
 
             {/* Day columns */}
-            <div className="relative flex-1" style={{ display: "grid", gridTemplateColumns: `repeat(${dayColumns.length}, minmax(100px,1fr))` }}>
+            <div className="relative flex-1" style={{ display: "grid", gridTemplateColumns: `repeat(${dayColumns.length}, minmax(80px,1fr))` }}>
               {dayColumns.map((day) => {
                 const dayStartMs = day.getTime();
                 const dayEndMs = dayStartMs + DAY_MS;
                 const today = isToday(day);
 
-                const realSessionBoxes = layers.sessions
+                const realSessionBoxes: SessionBoxExt[] = layers.sessions
                   ? visibleSessions
                       .map((s) => getSessionTimeRange(s, dayStartMs, dayEndMs))
-                      .filter((b): b is SessionBox => b !== null)
+                      .filter((b): b is SessionBoxExt => b !== null)
                       .filter((b) => b.endMs - b.startMs >= 30_000) // filter failed spawns (<30s)
                   : [];
-                const scheduledSessionBoxes = layers.sessions
-                  ? generateScheduledSessions(jobs, dayStartMs, dayEndMs)
+                const scheduledSessionBoxes: SessionBoxExt[] = layers.sessions
+                  ? generateScheduledSessions(jobs, dayStartMs, dayEndMs).map((sb) => ({
+                      ...sb, clampedTop: false, clampedBottom: false, isLong: false,
+                    }))
                   : [];
                 const sessionBoxes = [...realSessionBoxes, ...scheduledSessionBoxes];
 
@@ -710,6 +761,7 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                   ? generateScheduledRuns(jobs, dayStartMs, dayEndMs)
                   : [];
                 const allDayRuns = [...dayRuns, ...scheduledRuns];
+                const hasActivity = sessionBoxes.length > 0 || allDayRuns.length > 0;
                 const events = layoutOverlaps(allDayRuns, dayStartMs);
 
                 return (
@@ -728,6 +780,9 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                         <div className="relative flex items-center">
                           <span className="w-2 h-2 rounded-full bg-accent-aqua -ml-1 shadow-[0_0_8px_rgba(51,209,198,0.6)]" />
                           <div className="flex-1 h-[1.5px] bg-accent-aqua/60" />
+                          <span className="text-[9px] text-accent-aqua font-medium tabular-nums ml-0.5 mr-1 whitespace-nowrap">
+                            {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </span>
                         </div>
                       </div>
                     )}
@@ -739,6 +794,7 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                       const showLabel = height >= 18;
                       const isRunning = sb.session.status === "running" || sb.session.status === "active";
                       const isScheduled = sb.session.status === "scheduled";
+                      const timeRange = `${formatTimeShort(sb.startMs)} – ${formatTimeShort(sb.endMs)}`;
 
                       return (
                         <button
@@ -752,14 +808,26 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                             width: "28%",
                             zIndex: 1,
                           }}
-                          title={`${sb.session.label ?? sb.session.key} · ${sb.session.status ?? "unknown"}${sb.session.duration ? ` · ${sb.session.duration}` : ""}${sb.session.agent ? ` · ${sb.session.agent}` : ""}${isScheduled ? " (projected)" : ""}`}
+                          title={`${sb.session.label ?? sb.session.key} · ${sb.session.status ?? "unknown"}\n${timeRange}${sb.session.duration ? ` · ${sb.session.duration}` : ""}${sb.session.agent ? `\n${sb.session.agent}` : ""}${isScheduled ? " (projected)" : ""}`}
                         >
+                          {/* Continuation arrow at top (session started before this day) */}
+                          {sb.clampedTop && (
+                            <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 text-[8px] text-white/60 leading-none">▴</span>
+                          )}
                           {showLabel && (
-                            <span className={`block px-1.5 text-[9px] leading-tight font-medium truncate drop-shadow-sm ${isScheduled ? "text-accent-aqua/70" : "text-white/90"}`}>
+                            <span className={`block px-1.5 text-[9px] leading-tight font-medium truncate drop-shadow-sm ${isScheduled ? "text-accent-aqua/70" : "text-white/90"} ${sb.clampedTop ? "mt-2" : ""}`}>
                               {isRunning && <span className="inline-block w-1 h-1 rounded-full bg-accent-aqua animate-pulse mr-1 align-middle" />}
                               {isScheduled && "⏱ "}
                               {sb.session.label ?? sb.session.key}
                             </span>
+                          )}
+                          {/* Long session fade gradient */}
+                          {sb.isLong && height > 60 && (
+                            <span className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-black/30 to-transparent rounded-b-sm pointer-events-none" />
+                          )}
+                          {/* Continuation arrow at bottom (session extends past this day) */}
+                          {sb.clampedBottom && (
+                            <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 text-[8px] text-white/60 leading-none">▾</span>
                           )}
                         </button>
                       );
@@ -818,6 +886,13 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                         </button>
                       );
                     })}
+
+                    {/* No activity placeholder */}
+                    {!hasActivity && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <span className="text-[10px] text-gray-700 italic">No activity</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
