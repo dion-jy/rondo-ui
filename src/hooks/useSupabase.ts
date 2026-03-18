@@ -127,45 +127,50 @@ export function useStats(jobs: CronJob[], runs: CronRun[]): CronStats {
 
 // ── useSessions ──
 
-function parseDurationToMs(dur?: string): number {
-  if (!dur) return 0;
-  let ms = 0;
-  const h = dur.match(/(\d+)\s*h/);
-  const m = dur.match(/(\d+)\s*m(?:in)?/);
-  const s = dur.match(/(\d+)\s*s/);
-  if (h) ms += Number(h[1]) * 3_600_000;
-  if (m) ms += Number(m[1]) * 60_000;
-  if (s) ms += Number(s[1]) * 1_000;
-  return ms;
-}
-
 export function useSessions(refreshIntervalMs = 30_000) {
   const [sessions, setSessions] = useState<ACPSession[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchSessions = useCallback(async () => {
+    const client = getClient();
+    if (!client) {
+      setError("Supabase not configured");
+      setLoading(false);
+      return;
+    }
+
     try {
-      const res = await fetch("/api/sessions");
-      const ct = res.headers.get("content-type") || "";
-      if (!res.ok || !ct.includes("application/json")) {
-        throw new Error("sessions_api_unavailable");
-      }
-      const data = await res.json();
-      const raw: ACPSession[] = Array.isArray(data) ? data : data.sessions ?? [];
+      const { data, error: err } = await client
+        .from("acp_sessions")
+        .select("*")
+        .order("updated_at", { ascending: false })
+        .limit(50);
 
-      // Compute startedAt from updatedAt - duration if missing
-      const enriched = raw.map((s) => {
-        if (s.startedAt) return s;
-        const durMs = parseDurationToMs(s.duration);
-        const updated = s.updatedAt ?? Date.now();
-        return { ...s, startedAt: durMs > 0 ? updated - durMs : updated };
-      });
+      if (err) throw err;
 
-      setSessions(enriched);
+      const mapped: ACPSession[] = (data ?? []).map((row: any) => ({
+        key: row.key,
+        label: row.label ?? undefined,
+        agent: row.agent ?? undefined,
+        model: row.model ?? undefined,
+        status: row.status ?? undefined,
+        updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : undefined,
+        startedAt: row.started_at ? new Date(row.started_at).getTime() : undefined,
+        summary: row.summary ?? undefined,
+        tokens: row.tokens ?? undefined,
+        duration: row.duration_ms
+          ? formatDuration(row.duration_ms)
+          : undefined,
+      }));
+
+      setSessions(mapped);
       setError(null);
-    } catch {
+    } catch (err) {
       setSessions([]);
-      setError("sessions_api_unavailable");
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -175,7 +180,16 @@ export function useSessions(refreshIntervalMs = 30_000) {
     return () => clearInterval(t);
   }, [fetchSessions, refreshIntervalMs]);
 
-  return { sessions, error };
+  return { sessions, loading, error, refetch: fetchSessions };
+}
+
+function formatDuration(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const h = Math.floor(m / 60);
+  if (h > 0) return `${h}h ${m % 60}m`;
+  if (m > 0) return `${m}m ${s % 60}s`;
+  return `${s}s`;
 }
 
 export function isConfigured(): boolean {
