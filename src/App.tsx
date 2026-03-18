@@ -131,11 +131,8 @@ export function App() {
               </div>
             </div>
 
-            {/* Execution log below */}
-            <div>
-              <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Execution Log</h2>
-              <ExecutionLog runs={runs} jobs={jobs} selectedJobId={selectedJobId} />
-            </div>
+            {/* Execution log — cron runs + completed ACP sessions merged */}
+            <ExecutionLog runs={runs} jobs={jobs} sessions={sessions} selectedJobId={selectedJobId} />
           </div>
         )}
       </main>
