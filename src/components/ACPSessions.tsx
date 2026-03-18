@@ -28,6 +28,7 @@ function timeAgo(ts?: number): string {
 }
 
 export function ACPSessions() {
+  // Build marker: supabase-sessions-v2
   const { sessions, loading, error } = useSessions();
 
   const sorted = useMemo(
