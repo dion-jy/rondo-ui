@@ -12,6 +12,7 @@ type EventBox = {
   run: CronRun;
   startMs: number;
   endMs: number;
+  visualEndMs: number;
   col: number;
   colCount: number;
 };
