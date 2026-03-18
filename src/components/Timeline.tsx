@@ -375,7 +375,7 @@ function LayerToggle({
 // ── Main Timeline ──
 
 export function Timeline({ runs, jobs, sessions }: TimelineProps) {
-  const [offset, setOffset] = useState<1 | 3 | 5>(3);
+  const [offset, setOffset] = useState<1 | 3 | 5>(1);
   const [hourHeight, setHourHeight] = useState(getInitialZoom);
   const [selectedRun, setSelectedRun] = useState<CronRun | null>(null);
   const [selectedSession, setSelectedSession] = useState<ACPSession | null>(null);
