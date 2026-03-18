@@ -189,7 +189,7 @@ function layoutOverlaps(dayRuns: CronRun[], dayStartMs: number): EventBox[] {
   const out: EventBox[] = [];
 
   for (const group of groups) {
-    const active: { endMs: number; col: number }[] = [];
+    const active: { visualEndMs: number; col: number }[] = [];
     let maxCol = 0;
 
     const assigned: { item: typeof items[0]; col: number }[] = [];

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useSessions } from "../hooks/useSupabase";
-import type { ACPSession } from "../types";
+
 
 function statusDot(status?: string) {
   if (status === "active" || status === "running") return "bg-emerald-400 animate-pulse";
