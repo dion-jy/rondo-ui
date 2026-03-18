@@ -630,6 +630,7 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                   ? visibleSessions
                       .map((s) => getSessionTimeRange(s, dayStartMs, dayEndMs))
                       .filter((b): b is SessionBox => b !== null)
+                      .filter((b) => b.endMs - b.startMs >= 30_000) // filter failed spawns (<30s)
                   : [];
 
                 const dayRuns = layers.cron
@@ -675,10 +676,12 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                         <button
                           key={sb.session.key}
                           onClick={() => setSelectedSession(sb.session)}
-                          className={`absolute left-0 right-0 mx-0.5 cursor-pointer transition-all duration-150 hover:brightness-125 ${sessionStatusColor(sb.session.status)}`}
+                          className={`absolute cursor-pointer transition-all duration-150 hover:brightness-125 ${sessionStatusColor(sb.session.status)}`}
                           style={{
                             top: `${top}px`,
                             height: `${height}px`,
+                            left: 0,
+                            width: "28%",
                             zIndex: 1,
                           }}
                           title={`${sb.session.label ?? sb.session.key} \u00B7 ${sb.session.status ?? "unknown"}${sb.session.duration ? ` \u00B7 ${sb.session.duration}` : ""}`}
@@ -697,8 +700,10 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                     {events.map((e) => {
                       const top = ((e.startMs - dayStartMs) / DAY_MS) * totalHeight;
                       const height = Math.max(((e.endMs - e.startMs) / DAY_MS) * totalHeight, 18);
-                      const width = 100 / e.colCount;
-                      const left = e.col * width;
+                      const laneWidth = 70; // cron events use right 70% of column
+                      const laneOffset = 30; // start after session lane
+                      const width = laneWidth / e.colCount;
+                      const left = laneOffset + e.col * width;
                       const label = jobNameMap.get(e.run.job_id) ?? e.run.action ?? "";
                       const dur = formatDuration(e.run.duration_ms);
                       const showTitle = height >= 12;
