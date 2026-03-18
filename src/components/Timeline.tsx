@@ -151,25 +151,32 @@ function generateScheduledRuns(jobs: CronJob[], dayStartMs: number, dayEndMs: nu
 function layoutOverlaps(dayRuns: CronRun[], dayStartMs: number): EventBox[] {
   if (dayRuns.length === 0) return [];
 
+  // Minimum visual height is 18px; at default hourHeight (~80px),
+  // that's about 13.5 minutes. Use 15min as collision minimum so
+  // visually overlapping events get side-by-side layout.
+  const MIN_VISUAL_MS = 15 * 60_000;
+
   const items = dayRuns
     .map((run) => {
       const endMs = new Date(run.timestamp).getTime();
       const dur = Math.max(run.duration_ms ?? 60_000, 30_000);
       const startMs = Math.max(dayStartMs, endMs - dur);
-      return { run, startMs, endMs };
+      // For collision detection, extend endMs to match minimum visual height
+      const visualEndMs = Math.max(endMs, startMs + MIN_VISUAL_MS);
+      return { run, startMs, endMs, visualEndMs };
     })
     .sort((a, b) => a.startMs - b.startMs);
 
   // 1. Build collision groups (connected components of overlapping events)
   const groups: (typeof items)[] = [];
   let currentGroup: typeof items = [items[0]];
-  let groupEnd = items[0].endMs;
+  let groupEnd = items[0].visualEndMs;
 
   for (let i = 1; i < items.length; i++) {
     if (items[i].startMs <= groupEnd) {
       // Overlaps with current group (includes same-time events)
       currentGroup.push(items[i]);
-      groupEnd = Math.max(groupEnd, items[i].endMs);
+      groupEnd = Math.max(groupEnd, items[i].visualEndMs);
     } else {
       groups.push(currentGroup);
       currentGroup = [items[i]];
@@ -188,14 +195,14 @@ function layoutOverlaps(dayRuns: CronRun[], dayStartMs: number): EventBox[] {
     const assigned: { item: typeof items[0]; col: number }[] = [];
 
     for (const it of group) {
-      // Expire events that ended before this one starts (strict < to handle same-time events)
+      // Expire events whose visual extent ended before this one starts
       for (let i = active.length - 1; i >= 0; i--) {
-        if (active[i].endMs < it.startMs) active.splice(i, 1);
+        if (active[i].visualEndMs < it.startMs) active.splice(i, 1);
       }
 
       let col = 0;
       while (active.some((a) => a.col === col)) col++;
-      active.push({ endMs: it.endMs, col });
+      active.push({ visualEndMs: it.visualEndMs, col });
       maxCol = Math.max(maxCol, col);
 
       assigned.push({ item: it, col });
