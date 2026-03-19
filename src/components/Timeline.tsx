@@ -79,83 +79,6 @@ function formatTimeShort(ms: number): string {
 }
 
 /**
- * Generate projected future runs for enabled cron jobs within a time window.
- * Returns synthetic CronRun objects with status="scheduled".
- */
-function generateScheduledRuns(jobs: CronJob[], dayStartMs: number, dayEndMs: number): CronRun[] {
-  const now = Date.now();
-  // Only show future projections
-  if (dayEndMs <= now) return [];
-
-  const projections: CronRun[] = [];
-
-  for (const job of jobs) {
-    if (!job.enabled) continue;
-
-    let intervalMs = 0;
-    if (job.schedule_kind === "every" && job.schedule_every_ms) {
-      intervalMs = job.schedule_every_ms;
-    } else if (job.schedule_kind === "cron" && job.schedule_expr) {
-      // Simple heuristic for common cron patterns
-      const parts = (job.schedule_expr || "").split(/\s+/);
-      if (parts.length >= 5) {
-        const minPart = parts[0];
-        if (minPart.startsWith("*/")) {
-          intervalMs = parseInt(minPart.slice(2)) * 60_000;
-        } else {
-          // Hourly-ish default for standard cron
-          intervalMs = 60 * 60_000;
-        }
-      }
-    }
-
-    if (intervalMs <= 0) continue;
-
-    // Start from next_run_at or last_run_at + interval
-    let cursor = 0;
-    if (job.next_run_at) {
-      cursor = new Date(job.next_run_at).getTime();
-    } else if (job.last_run_at) {
-      cursor = new Date(job.last_run_at).getTime() + intervalMs;
-    } else {
-      continue;
-    }
-
-    // Walk forward until past dayEndMs, max 3 per job
-    let count = 0;
-    while (cursor < dayEndMs && count < 3) {
-      if (cursor >= Math.max(dayStartMs, now)) {
-        const avgDuration = job.last_duration_ms ?? 30_000;
-        projections.push({
-          id: `scheduled-${job.id}-${cursor}`,
-          instance_id: "",
-          job_id: job.id,
-          timestamp: new Date(cursor + avgDuration).toISOString(),
-          status: "scheduled",
-          action: job.name,
-          summary: null,
-          error: null,
-          duration_ms: avgDuration,
-          model: job.payload_model,
-          provider: null,
-          session_id: null,
-          delivered: null,
-          delivery_status: null,
-          input_tokens: null,
-          output_tokens: null,
-          total_tokens: null,
-          synced_at: "",
-        });
-        count++;
-      }
-      cursor += intervalMs;
-    }
-  }
-
-  return projections;
-}
-
-/**
  * Generate projected future ACP sessions for cron jobs with session_target="isolated".
  */
 function generateScheduledSessions(jobs: CronJob[], dayStartMs: number, dayEndMs: number): SessionBox[] {
@@ -249,7 +172,7 @@ function layoutOverlaps(dayRuns: CronRun[], dayStartMs: number): EventBox[] {
     } else {
       groups.push(currentGroup);
       currentGroup = [items[i]];
-      groupEnd = items[i].endMs;
+      groupEnd = items[i].visualEndMs;
     }
   }
   groups.push(currentGroup);
@@ -291,6 +214,8 @@ type SessionBoxExt = SessionBox & {
   clampedTop: boolean;
   clampedBottom: boolean;
   isLong: boolean; // >4h
+  col: number;
+  colCount: number;
 };
 
 function getSessionTimeRange(session: ACPSession, dayStartMs: number, dayEndMs: number, nowMs?: number): SessionBoxExt | null {
@@ -315,7 +240,58 @@ function getSessionTimeRange(session: ACPSession, dayStartMs: number, dayEndMs: 
     clampedTop: startMs < dayStartMs,
     clampedBottom: endMs > dayEndMs,
     isLong: (clampedEnd - clampedStart) > 4 * 3600_000,
+    col: 0,
+    colCount: 1,
   };
+}
+
+function layoutSessionOverlaps(boxes: SessionBoxExt[]): SessionBoxExt[] {
+  if (boxes.length === 0) return [];
+
+  const sorted = [...boxes].sort((a, b) => a.startMs - b.startMs);
+
+  // Build collision groups
+  const groups: SessionBoxExt[][] = [];
+  let currentGroup: SessionBoxExt[] = [sorted[0]];
+  let groupEnd = sorted[0].endMs;
+
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].startMs < groupEnd) {
+      currentGroup.push(sorted[i]);
+      groupEnd = Math.max(groupEnd, sorted[i].endMs);
+    } else {
+      groups.push(currentGroup);
+      currentGroup = [sorted[i]];
+      groupEnd = sorted[i].endMs;
+    }
+  }
+  groups.push(currentGroup);
+
+  // Assign columns within each group
+  const out: SessionBoxExt[] = [];
+  for (const group of groups) {
+    const active: { endMs: number; col: number }[] = [];
+    let maxCol = 0;
+    const assigned: { box: SessionBoxExt; col: number }[] = [];
+
+    for (const box of group) {
+      for (let i = active.length - 1; i >= 0; i--) {
+        if (active[i].endMs <= box.startMs) active.splice(i, 1);
+      }
+      let col = 0;
+      while (active.some((a) => a.col === col)) col++;
+      active.push({ endMs: box.endMs, col });
+      maxCol = Math.max(maxCol, col);
+      assigned.push({ box, col });
+    }
+
+    const colCount = maxCol + 1;
+    for (const { box, col } of assigned) {
+      out.push({ ...box, col, colCount });
+    }
+  }
+
+  return out;
 }
 
 function isToday(d: Date): boolean {
@@ -731,18 +707,18 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                 const dayEndMs = dayStartMs + DAY_MS;
                 const today = isToday(day);
 
-                const realSessionBoxes: SessionBoxExt[] = layers.sessions
-                  ? visibleSessions
-                      .map((s) => getSessionTimeRange(s, dayStartMs, dayEndMs, now.getTime()))
-                      .filter((b): b is SessionBoxExt => b !== null)
-                      .filter((b) => b.endMs - b.startMs >= 30_000) // filter failed spawns (<30s)
+                const rawSessionBoxes: SessionBoxExt[] = layers.sessions
+                  ? [
+                      ...visibleSessions
+                        .map((s) => getSessionTimeRange(s, dayStartMs, dayEndMs, now.getTime()))
+                        .filter((b): b is SessionBoxExt => b !== null)
+                        .filter((b) => b.endMs - b.startMs >= 30_000),
+                      ...generateScheduledSessions(jobs, dayStartMs, dayEndMs).map((sb) => ({
+                        ...sb, clampedTop: false, clampedBottom: false, isLong: false, col: 0, colCount: 1,
+                      })),
+                    ]
                   : [];
-                const scheduledSessionBoxes: SessionBoxExt[] = layers.sessions
-                  ? generateScheduledSessions(jobs, dayStartMs, dayEndMs).map((sb) => ({
-                      ...sb, clampedTop: false, clampedBottom: false, isLong: false,
-                    }))
-                  : [];
-                const sessionBoxes = [...realSessionBoxes, ...scheduledSessionBoxes];
+                const sessionBoxes = layoutSessionOverlaps(rawSessionBoxes);
 
                 const dayRuns = layers.cron
                   ? visibleRuns.filter((r) => {
@@ -750,12 +726,8 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                       return ts >= dayStartMs && ts < dayEndMs;
                     })
                   : [];
-                const scheduledRuns = layers.cron
-                  ? generateScheduledRuns(jobs, dayStartMs, dayEndMs)
-                  : [];
-                const allDayRuns = [...dayRuns, ...scheduledRuns];
-                const hasActivity = sessionBoxes.length > 0 || allDayRuns.length > 0;
-                const events = layoutOverlaps(allDayRuns, dayStartMs);
+                const hasActivity = sessionBoxes.length > 0 || dayRuns.length > 0;
+                const events = layoutOverlaps(dayRuns, dayStartMs);
 
                 return (
                   <div key={day.toISOString()} className={`relative border-r border-white/[0.03] ${today ? "today-column" : ""}`}>
@@ -797,8 +769,8 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                           style={{
                             top: `${top}px`,
                             height: `${height}px`,
-                            left: 0,
-                            width: "28%",
+                            left: `${(sb.col * 28) / sb.colCount}%`,
+                            width: `${28 / sb.colCount}%`,
                             zIndex: 1,
                             ...(isScheduled ? { borderStyle: "dashed", borderWidth: "1px" } : {}),
                           }}
