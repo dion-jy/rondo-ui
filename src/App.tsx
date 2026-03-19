@@ -1,5 +1,7 @@
 import { useState, useCallback } from "react";
 import { useJobs, useRuns, useStats, useSessions, isConfigured } from "./hooks/useSupabase";
+import { useAuth } from "./hooks/useAuth";
+import { Login } from "./components/Login";
 import { Stats } from "./components/Stats";
 import { Timeline } from "./components/Timeline";
 import { ExecutionLog } from "./components/ExecutionLog";
@@ -85,12 +87,27 @@ function SyncButton({ onSynced }: { onSynced?: () => void }) {
 }
 
 export function App() {
+  const { user, loading: authLoading, signOut } = useAuth();
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"calendar" | "jobs">("calendar");
   const { jobs, loading: jobsLoading, error: jobsError } = useJobs();
   const { runs, loading: runsLoading, error: runsError } = useRuns(undefined, 200);
   const { sessions, refetch: refetchSessions } = useSessions();
   const stats = useStats(jobs, runs);
+
+  // Auth loading state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Not authenticated — show login
+  if (!user) {
+    return <Login />;
+  }
 
   if (!isConfigured()) {
     return (
@@ -137,6 +154,16 @@ export function App() {
               </button>
             </div>
             <SyncButton onSynced={refetchSessions} />
+            <div className="flex items-center gap-2 ml-2 pl-2 border-l border-border">
+              <span className="text-[11px] text-gray-500 truncate max-w-[160px]">{user.email}</span>
+              <button
+                onClick={signOut}
+                className="text-[11px] text-gray-600 hover:text-gray-400 transition-colors"
+                title="Sign out"
+              >
+                Sign out
+              </button>
+            </div>
             {loading && (
               <span className="flex items-center gap-1.5 text-xs text-gray-600">
                 <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
