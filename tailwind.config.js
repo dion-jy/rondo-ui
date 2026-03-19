@@ -4,33 +4,33 @@ export default {
   theme: {
     extend: {
       colors: {
-        /* ── Rondo Brand Palette ── */
+        /* ── Rondo Brand Palette (theme-aware via CSS vars) ── */
         surface: {
-          DEFAULT: "#0d1017",     /* deep navy-graphite */
-          card: "#141821",        /* raised card */
-          hover: "#1c2130",       /* hover state */
-          raised: "#252b3a",      /* elevated surface */
+          DEFAULT: "rgb(var(--surface-rgb) / <alpha-value>)",
+          card: "rgb(var(--surface-card-rgb) / <alpha-value>)",
+          hover: "rgb(var(--surface-hover-rgb) / <alpha-value>)",
+          raised: "rgb(var(--surface-raised-rgb) / <alpha-value>)",
         },
         accent: {
-          DEFAULT: "#7C6CFF",     /* Rondo Iris — primary */
-          hover: "#9B8FFF",       /* lighter iris */
-          muted: "#5E50CC",       /* muted iris */
-          dim: "#4A3FB3",         /* dim iris */
-          aqua: "#33D1C6",        /* Aqua Pulse — secondary */
-          brass: "#C8A96B",       /* Brass — warm highlight */
-          rose: "#E8527A",        /* rose for errors/alerts */
+          DEFAULT: "rgb(var(--accent-rgb) / <alpha-value>)",
+          hover: "rgb(var(--accent-hover-rgb) / <alpha-value>)",
+          muted: "rgb(var(--accent-muted-rgb) / <alpha-value>)",
+          dim: "rgb(var(--accent-muted-rgb) / <alpha-value>)",
+          aqua: "rgb(var(--accent-aqua-rgb) / <alpha-value>)",
+          brass: "rgb(var(--accent-brass-rgb) / <alpha-value>)",
+          rose: "#E8527A",
         },
         border: {
-          DEFAULT: "rgba(124,108,255,0.08)",
-          hover: "rgba(124,108,255,0.16)",
-          accent: "rgba(124,108,255,0.25)",
+          DEFAULT: "rgb(var(--border-rgb) / 0.08)",
+          hover: "rgb(var(--border-rgb) / 0.16)",
+          accent: "rgb(var(--border-rgb) / 0.25)",
         },
       },
       boxShadow: {
-        glow: "0 0 24px rgba(124,108,255,0.18)",
+        glow: "0 0 24px rgb(var(--accent-rgb) / 0.18)",
         "card-hover": "0 8px 32px rgba(0,0,0,0.5)",
         "sticky-left": "6px 0 16px rgba(0,0,0,0.5)",
-        "iris": "0 0 12px rgba(124,108,255,0.25)",
+        iris: "0 0 12px rgb(var(--accent-rgb) / 0.25)",
       },
       animation: {
         "fade-in": "fadeIn 0.2s ease-out",

@@ -94,6 +94,35 @@ function generateScheduledProjections(jobs: CronJob[], dayStartMs: number, dayEn
   for (const job of jobs) {
     if (!job.enabled) continue;
 
+    // Handle once/at scheduled jobs (single future time point)
+    if ((job.schedule_kind === "once" || job.schedule_kind === "at") && job.schedule_at) {
+      const atMs = new Date(job.schedule_at).getTime();
+      if (atMs >= Math.max(dayStartMs, now) && atMs < dayEndMs) {
+        const estDuration = job.last_duration_ms ?? 60_000;
+        projections.push({
+          id: `scheduled-once-${job.id}-${atMs}`,
+          instance_id: "",
+          job_id: job.id,
+          status: "scheduled",
+          timestamp: new Date(atMs + estDuration).toISOString(),
+          action: job.name,
+          summary: null,
+          error: null,
+          duration_ms: estDuration,
+          model: null,
+          provider: null,
+          session_id: null,
+          delivered: null,
+          delivery_status: null,
+          input_tokens: null,
+          output_tokens: null,
+          total_tokens: null,
+          synced_at: "",
+        });
+      }
+      continue;
+    }
+
     let intervalMs = 0;
     if (job.schedule_kind === "every" && job.schedule_every_ms) {
       intervalMs = job.schedule_every_ms;

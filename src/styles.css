@@ -5,8 +5,12 @@
 /* ═══════════════════════════════════════════
    Rondo Brand Palette — CSS Custom Properties
    ═══════════════════════════════════════════ */
-:root {
-  /* Core */
+
+/* ── Midnight (default) ── */
+:root,
+[data-theme="midnight"] {
+  /* Core — RGB triplets for Tailwind alpha support */
+  --rondo-iris-rgb: 124 108 255;
   --rondo-iris: #7C6CFF;
   --rondo-iris-light: #9B8FFF;
   --rondo-iris-dim: #5E50CC;
@@ -21,6 +25,18 @@
   --rondo-surface-hover: #1c2130;
   --rondo-surface-raised: #252b3a;
 
+  /* Surface RGB for Tailwind */
+  --surface-rgb: 13 16 23;
+  --surface-card-rgb: 20 24 33;
+  --surface-hover-rgb: 28 33 48;
+  --surface-raised-rgb: 37 43 58;
+  --accent-rgb: 124 108 255;
+  --accent-hover-rgb: 155 143 255;
+  --accent-muted-rgb: 94 80 204;
+  --accent-aqua-rgb: 51 209 198;
+  --accent-brass-rgb: 200 169 107;
+  --border-rgb: 124 108 255;
+
   /* Status */
   --rondo-success: #34D399;
   --rondo-error: #FB7185;
@@ -28,20 +44,189 @@
   --rondo-info: #60A5FA;
 
   /* Event palette — orchestral tones */
-  --ev-cello: #6366F1;      /* indigo — deep, grounding */
-  --ev-violin: #A78BFA;     /* violet — melodic, light */
-  --ev-horn: #C8A96B;       /* brass — warm, bold */
-  --ev-flute: #33D1C6;      /* teal — airy, bright */
-  --ev-oboe: #F472B6;       /* pink — expressive */
-  --ev-timpani: #FB923C;    /* orange — percussive */
-  --ev-harp: #67E8F9;       /* cyan — ethereal */
-  --ev-bassoon: #4ADE80;    /* green — woody, grounded */
+  --ev-cello: #6366F1;
+  --ev-violin: #A78BFA;
+  --ev-horn: #C8A96B;
+  --ev-flute: #33D1C6;
+  --ev-oboe: #F472B6;
+  --ev-timpani: #FB923C;
+  --ev-harp: #67E8F9;
+  --ev-bassoon: #4ADE80;
+}
+
+/* ── Nord ── */
+[data-theme="nord"] {
+  --rondo-iris-rgb: 136 192 208;
+  --rondo-iris: #88C0D0;
+  --rondo-iris-light: #8FBCBB;
+  --rondo-iris-dim: #81A1C1;
+  --rondo-aqua: #A3BE8C;
+  --rondo-aqua-dim: #8FAF78;
+  --rondo-brass: #EBCB8B;
+  --rondo-brass-dim: #D0A85C;
+
+  --rondo-bg: #2E3440;
+  --rondo-surface: #3B4252;
+  --rondo-surface-hover: #434C5E;
+  --rondo-surface-raised: #4C566A;
+
+  --surface-rgb: 46 52 64;
+  --surface-card-rgb: 59 66 82;
+  --surface-hover-rgb: 67 76 94;
+  --surface-raised-rgb: 76 86 106;
+  --accent-rgb: 136 192 208;
+  --accent-hover-rgb: 143 188 187;
+  --accent-muted-rgb: 129 161 193;
+  --accent-aqua-rgb: 163 190 140;
+  --accent-brass-rgb: 235 203 139;
+  --border-rgb: 136 192 208;
+
+  --rondo-success: #A3BE8C;
+  --rondo-error: #BF616A;
+  --rondo-warning: #EBCB8B;
+  --rondo-info: #81A1C1;
+
+  --ev-cello: #5E81AC;
+  --ev-violin: #B48EAD;
+  --ev-horn: #EBCB8B;
+  --ev-flute: #88C0D0;
+  --ev-oboe: #BF616A;
+  --ev-timpani: #D08770;
+  --ev-harp: #8FBCBB;
+  --ev-bassoon: #A3BE8C;
+}
+
+/* ── Solarized Dark ── */
+[data-theme="solarized"] {
+  --rondo-iris-rgb: 38 139 210;
+  --rondo-iris: #268BD2;
+  --rondo-iris-light: #2AA198;
+  --rondo-iris-dim: #6C71C4;
+  --rondo-aqua: #2AA198;
+  --rondo-aqua-dim: #1D8A83;
+  --rondo-brass: #B58900;
+  --rondo-brass-dim: #9B7500;
+
+  --rondo-bg: #002B36;
+  --rondo-surface: #073642;
+  --rondo-surface-hover: #0a4050;
+  --rondo-surface-raised: #1a5060;
+
+  --surface-rgb: 0 43 54;
+  --surface-card-rgb: 7 54 66;
+  --surface-hover-rgb: 10 64 80;
+  --surface-raised-rgb: 26 80 96;
+  --accent-rgb: 38 139 210;
+  --accent-hover-rgb: 42 161 152;
+  --accent-muted-rgb: 108 113 196;
+  --accent-aqua-rgb: 42 161 152;
+  --accent-brass-rgb: 181 137 0;
+  --border-rgb: 38 139 210;
+
+  --rondo-success: #859900;
+  --rondo-error: #DC322F;
+  --rondo-warning: #B58900;
+  --rondo-info: #268BD2;
+
+  --ev-cello: #6C71C4;
+  --ev-violin: #D33682;
+  --ev-horn: #B58900;
+  --ev-flute: #2AA198;
+  --ev-oboe: #CB4B16;
+  --ev-timpani: #DC322F;
+  --ev-harp: #268BD2;
+  --ev-bassoon: #859900;
+}
+
+/* ── Dracula ── */
+[data-theme="dracula"] {
+  --rondo-iris-rgb: 189 147 249;
+  --rondo-iris: #BD93F9;
+  --rondo-iris-light: #CAA9FA;
+  --rondo-iris-dim: #9D79D9;
+  --rondo-aqua: #8BE9FD;
+  --rondo-aqua-dim: #6AD0E4;
+  --rondo-brass: #F1FA8C;
+  --rondo-brass-dim: #D4DD72;
+
+  --rondo-bg: #282A36;
+  --rondo-surface: #383A4A;
+  --rondo-surface-hover: #44475A;
+  --rondo-surface-raised: #585b70;
+
+  --surface-rgb: 40 42 54;
+  --surface-card-rgb: 56 58 74;
+  --surface-hover-rgb: 68 71 90;
+  --surface-raised-rgb: 88 91 112;
+  --accent-rgb: 189 147 249;
+  --accent-hover-rgb: 202 169 250;
+  --accent-muted-rgb: 157 121 217;
+  --accent-aqua-rgb: 139 233 253;
+  --accent-brass-rgb: 241 250 140;
+  --border-rgb: 189 147 249;
+
+  --rondo-success: #50FA7B;
+  --rondo-error: #FF5555;
+  --rondo-warning: #F1FA8C;
+  --rondo-info: #8BE9FD;
+
+  --ev-cello: #BD93F9;
+  --ev-violin: #FF79C6;
+  --ev-horn: #F1FA8C;
+  --ev-flute: #8BE9FD;
+  --ev-oboe: #FF79C6;
+  --ev-timpani: #FFB86C;
+  --ev-harp: #6272A4;
+  --ev-bassoon: #50FA7B;
+}
+
+/* ── Rosé Pine ── */
+[data-theme="rosepine"] {
+  --rondo-iris-rgb: 196 167 231;
+  --rondo-iris: #c4a7e7;
+  --rondo-iris-light: #e0def4;
+  --rondo-iris-dim: #908caa;
+  --rondo-aqua: #31748f;
+  --rondo-aqua-dim: #286175;
+  --rondo-brass: #f6c177;
+  --rondo-brass-dim: #d4a35e;
+
+  --rondo-bg: #191724;
+  --rondo-surface: #1f1d2e;
+  --rondo-surface-hover: #26233a;
+  --rondo-surface-raised: #2a2837;
+
+  --surface-rgb: 25 23 36;
+  --surface-card-rgb: 31 29 46;
+  --surface-hover-rgb: 38 35 58;
+  --surface-raised-rgb: 42 40 55;
+  --accent-rgb: 196 167 231;
+  --accent-hover-rgb: 224 222 244;
+  --accent-muted-rgb: 144 140 170;
+  --accent-aqua-rgb: 49 116 143;
+  --accent-brass-rgb: 246 193 119;
+  --border-rgb: 196 167 231;
+
+  --rondo-success: #9ccfd8;
+  --rondo-error: #eb6f92;
+  --rondo-warning: #f6c177;
+  --rondo-info: #31748f;
+
+  --ev-cello: #c4a7e7;
+  --ev-violin: #eb6f92;
+  --ev-horn: #f6c177;
+  --ev-flute: #9ccfd8;
+  --ev-oboe: #eb6f92;
+  --ev-timpani: #ebbcba;
+  --ev-harp: #31748f;
+  --ev-bassoon: #56949f;
 }
 
 @layer base {
   body {
     @apply bg-surface text-gray-100 antialiased;
     font-family: "Inter", system-ui, -apple-system, sans-serif;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   /* Custom scrollbar */
