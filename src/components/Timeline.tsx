@@ -140,74 +140,77 @@ function generateScheduledSessions(jobs: CronJob[], dayStartMs: number, dayEndMs
   return projections;
 }
 
-function layoutOverlaps(dayRuns: CronRun[], dayStartMs: number): EventBox[] {
-  if (dayRuns.length === 0) return [];
+/**
+ * Generate projected future cron runs for non-isolated jobs.
+ * (Isolated jobs are projected as ACP sessions via generateScheduledSessions.)
+ */
+function generateScheduledRuns(jobs: CronJob[], dayStartMs: number, dayEndMs: number): CronRun[] {
+  const now = Date.now();
+  if (dayEndMs <= now) return [];
 
-  // Minimum visual height is 18px; at default hourHeight (~80px),
-  // that's about 13.5 minutes. Use 15min as collision minimum so
-  // visually overlapping events get side-by-side layout.
-  const MIN_VISUAL_MS = 15 * 60_000;
+  const projections: CronRun[] = [];
 
-  const items = dayRuns
-    .map((run) => {
-      const endMs = new Date(run.timestamp).getTime();
-      const dur = Math.max(run.duration_ms ?? 60_000, 30_000);
-      const startMs = Math.max(dayStartMs, endMs - dur);
-      // For collision detection, extend endMs to match minimum visual height
-      const visualEndMs = Math.max(endMs, startMs + MIN_VISUAL_MS);
-      return { run, startMs, endMs, visualEndMs };
-    })
-    .sort((a, b) => a.startMs - b.startMs);
+  for (const job of jobs) {
+    if (!job.enabled) continue;
+    if (job.session_target === "isolated") continue;
 
-  // 1. Build collision groups (connected components of overlapping events)
-  const groups: (typeof items)[] = [];
-  let currentGroup: typeof items = [items[0]];
-  let groupEnd = items[0].visualEndMs;
-
-  for (let i = 1; i < items.length; i++) {
-    if (items[i].startMs <= groupEnd) {
-      // Overlaps with current group (includes same-time events)
-      currentGroup.push(items[i]);
-      groupEnd = Math.max(groupEnd, items[i].visualEndMs);
-    } else {
-      groups.push(currentGroup);
-      currentGroup = [items[i]];
-      groupEnd = items[i].visualEndMs;
-    }
-  }
-  groups.push(currentGroup);
-
-  // 2. Within each group, assign columns greedily
-  const out: EventBox[] = [];
-
-  for (const group of groups) {
-    const active: { visualEndMs: number; col: number }[] = [];
-    let maxCol = 0;
-
-    const assigned: { item: typeof items[0]; col: number }[] = [];
-
-    for (const it of group) {
-      // Expire events whose visual extent ended before this one starts
-      for (let i = active.length - 1; i >= 0; i--) {
-        if (active[i].visualEndMs < it.startMs) active.splice(i, 1);
+    let intervalMs = 0;
+    if (job.schedule_kind === "every" && job.schedule_every_ms) {
+      intervalMs = job.schedule_every_ms;
+    } else if (job.schedule_kind === "cron" && job.schedule_expr) {
+      const parts = (job.schedule_expr || "").split(/\s+/);
+      if (parts.length >= 5) {
+        const minPart = parts[0];
+        if (minPart.startsWith("*/")) {
+          intervalMs = parseInt(minPart.slice(2)) * 60_000;
+        } else {
+          intervalMs = 60 * 60_000;
+        }
       }
-
-      let col = 0;
-      while (active.some((a) => a.col === col)) col++;
-      active.push({ visualEndMs: it.visualEndMs, col });
-      maxCol = Math.max(maxCol, col);
-
-      assigned.push({ item: it, col });
     }
 
-    // All events in the group share the same colCount
-    const colCount = maxCol + 1;
-    for (const { item, col } of assigned) {
-      out.push({ ...item, col, colCount });
+    if (intervalMs <= 0) continue;
+
+    let cursor = 0;
+    if (job.next_run_at) {
+      cursor = new Date(job.next_run_at).getTime();
+    } else if (job.last_run_at) {
+      cursor = new Date(job.last_run_at).getTime() + intervalMs;
+    } else {
+      continue;
+    }
+
+    let count = 0;
+    while (cursor < dayEndMs && count < 3) {
+      if (cursor >= Math.max(dayStartMs, now)) {
+        const estDuration = job.last_duration_ms ?? 60_000;
+        projections.push({
+          id: `scheduled-cron-${job.id}-${cursor}`,
+          instance_id: "",
+          job_id: job.id,
+          status: "scheduled",
+          timestamp: new Date(cursor + estDuration).toISOString(),
+          action: job.name,
+          summary: null,
+          error: null,
+          duration_ms: estDuration,
+          model: null,
+          provider: null,
+          session_id: null,
+          delivered: null,
+          delivery_status: null,
+          input_tokens: null,
+          output_tokens: null,
+          total_tokens: null,
+          synced_at: "",
+        });
+        count++;
+      }
+      cursor += intervalMs;
     }
   }
 
-  return out;
+  return projections;
 }
 
 type SessionBoxExt = SessionBox & {
@@ -245,14 +248,17 @@ function getSessionTimeRange(session: ACPSession, dayStartMs: number, dayEndMs: 
   };
 }
 
-function layoutSessionOverlaps(boxes: SessionBoxExt[]): SessionBoxExt[] {
-  if (boxes.length === 0) return [];
+/**
+ * Unified overlap layout for mixed cron + session items.
+ * Returns col/colCount assignments keyed by item key.
+ */
+function layoutUnified(slots: { key: string; startMs: number; endMs: number }[]): Map<string, { col: number; colCount: number }> {
+  if (slots.length === 0) return new Map();
 
-  const sorted = [...boxes].sort((a, b) => a.startMs - b.startMs);
+  const sorted = [...slots].sort((a, b) => a.startMs - b.startMs);
 
-  // Build collision groups
-  const groups: SessionBoxExt[][] = [];
-  let currentGroup: SessionBoxExt[] = [sorted[0]];
+  const groups: (typeof sorted)[] = [];
+  let currentGroup = [sorted[0]];
   let groupEnd = sorted[0].endMs;
 
   for (let i = 1; i < sorted.length; i++) {
@@ -267,31 +273,31 @@ function layoutSessionOverlaps(boxes: SessionBoxExt[]): SessionBoxExt[] {
   }
   groups.push(currentGroup);
 
-  // Assign columns within each group
-  const out: SessionBoxExt[] = [];
+  const result = new Map<string, { col: number; colCount: number }>();
+
   for (const group of groups) {
     const active: { endMs: number; col: number }[] = [];
     let maxCol = 0;
-    const assigned: { box: SessionBoxExt; col: number }[] = [];
+    const assigned: { key: string; col: number }[] = [];
 
-    for (const box of group) {
+    for (const slot of group) {
       for (let i = active.length - 1; i >= 0; i--) {
-        if (active[i].endMs <= box.startMs) active.splice(i, 1);
+        if (active[i].endMs <= slot.startMs) active.splice(i, 1);
       }
       let col = 0;
       while (active.some((a) => a.col === col)) col++;
-      active.push({ endMs: box.endMs, col });
+      active.push({ endMs: slot.endMs, col });
       maxCol = Math.max(maxCol, col);
-      assigned.push({ box, col });
+      assigned.push({ key: slot.key, col });
     }
 
     const colCount = maxCol + 1;
-    for (const { box, col } of assigned) {
-      out.push({ ...box, col, colCount });
+    for (const { key, col } of assigned) {
+      result.set(key, { col, colCount });
     }
   }
 
-  return out;
+  return result;
 }
 
 function isToday(d: Date): boolean {
@@ -707,6 +713,7 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                 const dayEndMs = dayStartMs + DAY_MS;
                 const today = isToday(day);
 
+                // Gather raw session boxes (actual + projected)
                 const rawSessionBoxes: SessionBoxExt[] = layers.sessions
                   ? [
                       ...visibleSessions
@@ -718,16 +725,45 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                       })),
                     ]
                   : [];
-                const sessionBoxes = layoutSessionOverlaps(rawSessionBoxes);
 
+                // Gather cron runs (actual + projected)
                 const dayRuns = layers.cron
                   ? visibleRuns.filter((r) => {
                       const ts = new Date(r.timestamp).getTime();
                       return ts >= dayStartMs && ts < dayEndMs;
                     })
                   : [];
-                const hasActivity = sessionBoxes.length > 0 || dayRuns.length > 0;
-                const events = layoutOverlaps(dayRuns, dayStartMs);
+                const scheduledCronRuns = layers.cron ? generateScheduledRuns(jobs, dayStartMs, dayEndMs) : [];
+                const allCronRuns = [...dayRuns, ...scheduledCronRuns];
+
+                // Build time extents for each cron run
+                const VISUAL_MIN_MS = 15 * 60_000;
+                const cronExtents = allCronRuns.map((run) => {
+                  const endMs = new Date(run.timestamp).getTime();
+                  const dur = Math.max(run.duration_ms ?? 60_000, 30_000);
+                  const startMs = Math.max(dayStartMs, endMs - dur);
+                  const visualEndMs = Math.max(endMs, startMs + VISUAL_MIN_MS);
+                  return { run, startMs, endMs, visualEndMs };
+                });
+
+                // Unified overlap layout across both types
+                const unifiedSlots: { key: string; startMs: number; endMs: number }[] = [
+                  ...rawSessionBoxes.map((sb) => ({ key: `s-${sb.session.key}`, startMs: sb.startMs, endMs: sb.endMs })),
+                  ...cronExtents.map((ce) => ({ key: `c-${ce.run.id}`, startMs: ce.startMs, endMs: ce.visualEndMs })),
+                ];
+                const uLayout = layoutUnified(unifiedSlots);
+
+                const sessionBoxes = rawSessionBoxes.map((sb) => {
+                  const l = uLayout.get(`s-${sb.session.key}`) ?? { col: 0, colCount: 1 };
+                  return { ...sb, col: l.col, colCount: l.colCount };
+                });
+
+                const events: EventBox[] = cronExtents.map((ce) => {
+                  const l = uLayout.get(`c-${ce.run.id}`) ?? { col: 0, colCount: 1 };
+                  return { ...ce, col: l.col, colCount: l.colCount };
+                });
+
+                const hasActivity = sessionBoxes.length > 0 || allCronRuns.length > 0;
 
                 return (
                   <div key={day.toISOString()} className={`relative border-r border-white/[0.03] ${today ? "today-column" : ""}`}>
@@ -769,8 +805,8 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                           style={{
                             top: `${top}px`,
                             height: `${height}px`,
-                            left: `${(sb.col * 28) / sb.colCount}%`,
-                            width: `${28 / sb.colCount}%`,
+                            left: `calc(${(sb.col / sb.colCount) * 100}% + 2px)`,
+                            width: `calc(${(1 / sb.colCount) * 100}% - 4px)`,
                             zIndex: 1,
                             ...(isScheduled ? { borderStyle: "dashed", borderWidth: "1px" } : {}),
                           }}
@@ -816,10 +852,8 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                     {events.map((e) => {
                       const top = ((e.startMs - dayStartMs) / DAY_MS) * totalHeight;
                       const height = Math.max(((e.endMs - e.startMs) / DAY_MS) * totalHeight, 18);
-                      const laneWidth = 70; // cron events use right 70% of column
-                      const laneOffset = 30; // start after session lane
-                      const width = laneWidth / e.colCount;
-                      const left = laneOffset + e.col * width;
+                      const width = 100 / e.colCount;
+                      const left = e.col * width;
                       const label = jobNameMap.get(e.run.job_id) ?? e.run.action ?? "";
                       const dur = formatDuration(e.run.duration_ms);
                       const showTitle = height >= 12;
