@@ -1,6 +1,15 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
-import type { User } from "@supabase/supabase-js";
-import { getSupabaseClient } from "../lib/supabase";
+import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+let _client: SupabaseClient | null = null;
+function getClient(): SupabaseClient | null {
+  if (!supabaseUrl || !supabaseAnonKey) return null;
+  if (!_client) _client = createClient(supabaseUrl, supabaseAnonKey);
+  return _client;
+}
 
 type OAuthProvider = "google" | "github";
 
@@ -25,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const client = getSupabaseClient();
+    const client = getClient();
     if (!client) {
       setLoading(false);
       return;
@@ -46,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signInWithProvider = useCallback(async (provider: OAuthProvider) => {
-    const client = getSupabaseClient();
+    const client = getClient();
     if (!client) return;
     await client.auth.signInWithOAuth({
       provider,
@@ -58,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGitHub = useCallback(() => signInWithProvider("github"), [signInWithProvider]);
 
   const signOut = useCallback(async () => {
-    const client = getSupabaseClient();
+    const client = getClient();
     if (!client) return;
     await client.auth.signOut();
   }, []);
