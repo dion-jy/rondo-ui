@@ -17,12 +17,6 @@ type EventBox = {
   colCount: number;
 };
 
-type SessionBox = {
-  session: ACPSession;
-  startMs: number;
-  endMs: number;
-};
-
 const MIN_HOUR_HEIGHT = 32;
 const MAX_HOUR_HEIGHT = 120;
 const DEFAULT_HOUR_HEIGHT = 56;
@@ -88,72 +82,10 @@ function formatTimeShort(ms: number): string {
 }
 
 /**
- * Generate projected future ACP sessions for cron jobs with session_target="isolated".
+ * Generate projected future cron runs for ALL enabled jobs (regardless of session_target).
+ * Renders as cron-style bars with dashed borders to distinguish from actual past runs.
  */
-function generateScheduledSessions(jobs: CronJob[], dayStartMs: number, dayEndMs: number): SessionBox[] {
-  const now = Date.now();
-  if (dayEndMs <= now) return [];
-
-  const projections: SessionBox[] = [];
-
-  for (const job of jobs) {
-    if (!job.enabled || job.session_target !== "isolated") continue;
-
-    let intervalMs = 0;
-    if (job.schedule_kind === "every" && job.schedule_every_ms) {
-      intervalMs = job.schedule_every_ms;
-    } else if (job.schedule_kind === "cron" && job.schedule_expr) {
-      const parts = (job.schedule_expr || "").split(/\s+/);
-      if (parts.length >= 5) {
-        const minPart = parts[0];
-        if (minPart.startsWith("*/")) {
-          intervalMs = parseInt(minPart.slice(2)) * 60_000;
-        } else {
-          intervalMs = 60 * 60_000;
-        }
-      }
-    }
-
-    if (intervalMs <= 0) continue;
-
-    let cursor = 0;
-    if (job.next_run_at) {
-      cursor = new Date(job.next_run_at).getTime();
-    } else if (job.last_run_at) {
-      cursor = new Date(job.last_run_at).getTime() + intervalMs;
-    } else {
-      continue;
-    }
-
-    let count = 0;
-    while (cursor < dayEndMs && count < 3) {
-      if (cursor >= Math.max(dayStartMs, now)) {
-        const estDuration = job.last_duration_ms ?? 60_000;
-        projections.push({
-          session: {
-            key: `scheduled-acp-${job.id}-${cursor}`,
-            label: job.name,
-            status: "scheduled",
-            startedAt: cursor,
-            updatedAt: cursor + estDuration,
-          },
-          startMs: cursor,
-          endMs: cursor + estDuration,
-        });
-        count++;
-      }
-      cursor += intervalMs;
-    }
-  }
-
-  return projections;
-}
-
-/**
- * Generate projected future cron runs for non-isolated jobs.
- * (Isolated jobs are projected as ACP sessions via generateScheduledSessions.)
- */
-function generateScheduledRuns(jobs: CronJob[], dayStartMs: number, dayEndMs: number): CronRun[] {
+function generateScheduledProjections(jobs: CronJob[], dayStartMs: number, dayEndMs: number): CronRun[] {
   const now = Date.now();
   if (dayEndMs <= now) return [];
 
@@ -161,7 +93,6 @@ function generateScheduledRuns(jobs: CronJob[], dayStartMs: number, dayEndMs: nu
 
   for (const job of jobs) {
     if (!job.enabled) continue;
-    if (job.session_target === "isolated") continue;
 
     let intervalMs = 0;
     if (job.schedule_kind === "every" && job.schedule_every_ms) {
@@ -186,7 +117,7 @@ function generateScheduledRuns(jobs: CronJob[], dayStartMs: number, dayEndMs: nu
     } else if (job.last_run_at) {
       cursor = new Date(job.last_run_at).getTime() + intervalMs;
     } else {
-      continue;
+      cursor = now;
     }
 
     let count = 0;
@@ -222,7 +153,10 @@ function generateScheduledRuns(jobs: CronJob[], dayStartMs: number, dayEndMs: nu
   return projections;
 }
 
-type SessionBoxExt = SessionBox & {
+type SessionBoxExt = {
+  session: ACPSession;
+  startMs: number;
+  endMs: number;
   clampedTop: boolean;
   clampedBottom: boolean;
   isLong: boolean; // >4h
@@ -723,29 +657,22 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                 const dayEndMs = dayStartMs + DAY_MS;
                 const today = isToday(day);
 
-                // Gather raw session boxes (actual + projected)
+                // Gather raw session boxes (actual only — no projected sessions)
                 const rawSessionBoxes: SessionBoxExt[] = layers.sessions
-                  ? [
-                      ...visibleSessions
-                        .map((s) => getSessionTimeRange(s, dayStartMs, dayEndMs, now.getTime()))
-                        .filter((b): b is SessionBoxExt => b !== null)
-                        .filter((b) => b.endMs - b.startMs >= 30_000),
-                      ...generateScheduledSessions(jobs, dayStartMs, dayEndMs).map((sb) => ({
-                        ...sb,
-                        endMs: Math.max(sb.endMs, sb.startMs + VISUAL_MIN_MS),
-                        clampedTop: false, clampedBottom: false, isLong: false, col: 0, colCount: 1,
-                      })),
-                    ]
+                  ? visibleSessions
+                      .map((s) => getSessionTimeRange(s, dayStartMs, dayEndMs, now.getTime()))
+                      .filter((b): b is SessionBoxExt => b !== null)
+                      .filter((b) => b.endMs - b.startMs >= 30_000)
                   : [];
 
-                // Gather cron runs (actual + projected)
+                // Gather cron runs (actual + ALL scheduled projections)
                 const dayRuns = layers.cron
                   ? visibleRuns.filter((r) => {
                       const ts = new Date(r.timestamp).getTime();
                       return ts >= dayStartMs && ts < dayEndMs;
                     })
                   : [];
-                const scheduledCronRuns = layers.cron ? generateScheduledRuns(jobs, dayStartMs, dayEndMs) : [];
+                const scheduledCronRuns = layers.cron ? generateScheduledProjections(jobs, dayStartMs, dayEndMs) : [];
                 const allCronRuns = [...dayRuns, ...scheduledCronRuns];
 
                 // Build time extents for each cron run
@@ -776,7 +703,7 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                 });
 
                 const hasActivity = sessionBoxes.length > 0 || allCronRuns.length > 0;
-                const scheduledCount = scheduledCronRuns.length + (layers.sessions ? generateScheduledSessions(jobs, dayStartMs, dayEndMs).length : 0);
+                const scheduledCount = scheduledCronRuns.length;
 
                 return (
                   <div key={day.toISOString()} className={`relative border-r border-white/[0.03] ${today ? "today-column" : ""}`}>
@@ -877,7 +804,7 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                       const width = 100 / e.colCount;
                       const left = e.col * width;
                       const rawLabel = jobNameMap.get(e.run.job_id) ?? e.run.action ?? "";
-                      const label = isScheduled ? `\u23F1 Scheduled · ${rawLabel}` : rawLabel;
+                      const label = isScheduled ? `\u23F1 ${rawLabel}` : rawLabel;
                       const dur = formatDuration(e.run.duration_ms);
                       const showTitle = height >= 18;
                       const showMeta = height >= 38;
@@ -896,6 +823,7 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                             width: `calc(${width}% - 4px)`,
                             zIndex: 2,
                             padding: showTitle ? "1px 4px" : undefined,
+                            ...(isScheduled ? { borderStyle: "dashed", borderWidth: "1px", opacity: 0.65 } : {}),
                           }}
                           title={isScheduled
                             ? `\u23F1 Scheduled\nJob: ${rawLabel}\nTime: ${formatTimeShort(e.startMs)} \u2013 ${formatTimeShort(e.endMs)}\nEst. duration: ${dur}`
