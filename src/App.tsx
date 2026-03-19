@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useJobs, useRuns, useStats, useSessions, isConfigured } from "./hooks/useSupabase";
 import { useAuth } from "./hooks/useAuth";
 import { Login } from "./components/Login";
@@ -86,6 +86,49 @@ function SyncButton({ onSynced }: { onSynced?: () => void }) {
   );
 }
 
+function AccountMenu({ email, onSignOut }: { email: string; onSignOut: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center justify-center w-7 h-7 rounded-full bg-accent/10 text-accent hover:bg-accent/20 transition-colors text-[11px] font-bold uppercase"
+        title={email}
+      >
+        {email[0]}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1.5 w-56 rounded-lg border border-border bg-surface-card shadow-xl z-50 py-1.5 animate-fade-in">
+          <div className="px-3 py-2 border-b border-border">
+            <p className="text-[10px] text-gray-600 uppercase tracking-wider">Signed in as</p>
+            <p className="text-[12px] text-gray-300 truncate mt-0.5">{email}</p>
+          </div>
+          <button
+            onClick={() => { setOpen(false); onSignOut(); }}
+            className="w-full text-left px-3 py-2 text-[12px] text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors flex items-center gap-2"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+            </svg>
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function App() {
   const { user, loading: authLoading, signOut } = useAuth();
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -138,8 +181,10 @@ export function App() {
       <header className="border-b border-border bg-surface z-30 shrink-0">
         <div className="flex items-center justify-between px-4 md:px-6 py-2">
           <RondoLogo />
-          {/* Mobile: show user email */}
-          <span className="md:hidden text-[10px] text-gray-600 truncate max-w-[120px]">{user.email}</span>
+          {/* Mobile: account menu */}
+          <div className="md:hidden">
+            <AccountMenu email={user.email ?? ""} onSignOut={signOut} />
+          </div>
           <div className="hidden md:flex items-center gap-3">
             <div className="seg-control">
               <button
@@ -156,15 +201,8 @@ export function App() {
               </button>
             </div>
             <SyncButton onSynced={refetchSessions} />
-            <div className="flex items-center gap-2 ml-2 pl-2 border-l border-border">
-              <span className="text-[11px] text-gray-500 truncate max-w-[160px]">{user.email}</span>
-              <button
-                onClick={signOut}
-                className="text-[11px] text-gray-600 hover:text-gray-400 transition-colors"
-                title="Sign out"
-              >
-                Sign out
-              </button>
+            <div className="ml-2 pl-2 border-l border-border">
+              <AccountMenu email={user.email ?? ""} onSignOut={signOut} />
             </div>
             {loading && (
               <span className="flex items-center gap-1.5 text-xs text-gray-600">
@@ -246,15 +284,6 @@ export function App() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
             </svg>
             Jobs
-          </button>
-          <button
-            onClick={signOut}
-            className="flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium text-gray-600 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-            </svg>
-            Sign out
           </button>
         </div>
       </nav>
