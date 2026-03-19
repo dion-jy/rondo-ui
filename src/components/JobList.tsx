@@ -35,10 +35,10 @@ function formatTimeAgo(dateStr: string | null): string {
 }
 
 function statusIndicator(job: CronJob) {
-  if (job.is_running) return { dot: "bg-cyan-400 animate-pulse", label: "Running" };
+  if (job.is_running) return { dot: "bg-info animate-pulse", label: "Running" };
   if (!job.enabled) return { dot: "bg-gray-600", label: "Disabled" };
-  if (job.last_status === "ok") return { dot: "bg-emerald-400", label: "OK" };
-  if (job.last_status === "error") return { dot: "bg-rose-400", label: "Error" };
+  if (job.last_status === "ok") return { dot: "bg-success", label: "OK" };
+  if (job.last_status === "error") return { dot: "bg-error", label: "Error" };
   return { dot: "bg-gray-600", label: "\u2014" };
 }
 
@@ -80,7 +80,7 @@ export function JobList({ jobs, selectedJobId, onSelect }: JobListProps) {
                   <span>Last: {formatTimeAgo(job.last_run_at)}</span>
                   {job.payload_model && <span className="hidden sm:inline">{job.payload_model}</span>}
                   {job.consecutive_errors > 0 && (
-                    <span className="text-rose-400/80">{job.consecutive_errors} err</span>
+                    <span className="text-error/80">{job.consecutive_errors} err</span>
                   )}
                 </div>
               </div>
@@ -95,7 +95,7 @@ export function JobList({ jobs, selectedJobId, onSelect }: JobListProps) {
 
             {/* Expanded error */}
             {isSelected && job.last_error && (
-              <div className="mt-2.5 ml-5 p-2.5 bg-rose-950/20 rounded-md border border-rose-500/10 text-[11px] text-rose-300/80 break-all animate-fade-in leading-relaxed">
+              <div className="mt-2.5 ml-5 p-2.5 bg-error/10 rounded-md border border-error/10 text-[11px] text-error/80 break-all animate-fade-in leading-relaxed">
                 {job.last_error}
               </div>
             )}

@@ -302,7 +302,7 @@ function SessionDetailOverlay({ session, onClose }: { session: ACPSession; onClo
 
   const barColor = (s?: string) => {
     if (s === "running" || s === "active") return "bg-accent";
-    if (s === "error") return "bg-rose-500";
+    if (s === "error") return "bg-error";
     if (s === "done") return "bg-accent";
     return "bg-gray-600";
   };

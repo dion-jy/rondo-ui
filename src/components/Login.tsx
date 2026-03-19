@@ -16,8 +16,8 @@ export function Login() {
               <path d="M15 5 C15 5, 22 4, 21 9 C20 13, 17 11, 17.2 9" fill="url(#login-grad)" opacity="0.7" />
               <defs>
                 <linearGradient id="login-grad" x1="4" y1="4" x2="24" y2="24">
-                  <stop stopColor="#9B8FFF" />
-                  <stop offset="1" stopColor="#5E50CC" />
+                  <stop style={{ stopColor: "var(--rondo-iris-light)" }} />
+                  <stop offset="1" style={{ stopColor: "var(--rondo-iris-dim)" }} />
                 </linearGradient>
               </defs>
             </svg>

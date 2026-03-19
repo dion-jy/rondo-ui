@@ -18,13 +18,17 @@ export default {
           dim: "rgb(var(--accent-muted-rgb) / <alpha-value>)",
           aqua: "rgb(var(--accent-aqua-rgb) / <alpha-value>)",
           brass: "rgb(var(--accent-brass-rgb) / <alpha-value>)",
-          rose: "#E8527A",
         },
         border: {
           DEFAULT: "rgb(var(--border-rgb) / 0.08)",
           hover: "rgb(var(--border-rgb) / 0.16)",
           accent: "rgb(var(--border-rgb) / 0.25)",
         },
+        /* ── Status colors (theme-aware) ── */
+        success: "rgb(var(--success-rgb) / <alpha-value>)",
+        error: "rgb(var(--error-rgb) / <alpha-value>)",
+        warning: "rgb(var(--warning-rgb) / <alpha-value>)",
+        info: "rgb(var(--info-rgb) / <alpha-value>)",
       },
       boxShadow: {
         glow: "0 0 24px rgb(var(--accent-rgb) / 0.18)",

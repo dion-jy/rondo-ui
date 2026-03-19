@@ -12,9 +12,9 @@ function formatTokens(n: number): string {
 
 export function Stats({ stats }: StatsProps) {
   const items: { label: string; value: string; color?: string; muted?: boolean }[] = [
-    { label: "Active", value: `${stats.activeJobs}/${stats.totalJobs}`, color: "text-emerald-400" },
-    { label: "Success", value: `${stats.successRate.toFixed(0)}%`, color: stats.successRate >= 90 ? "text-emerald-400" : stats.successRate >= 70 ? "text-accent-brass" : "text-rose-400" },
-    { label: "Running", value: String(stats.runningNow), color: stats.runningNow > 0 ? "text-cyan-400" : "text-gray-500" },
+    { label: "Active", value: `${stats.activeJobs}/${stats.totalJobs}`, color: "text-success" },
+    { label: "Success", value: `${stats.successRate.toFixed(0)}%`, color: stats.successRate >= 90 ? "text-success" : stats.successRate >= 70 ? "text-accent-brass" : "text-error" },
+    { label: "Running", value: String(stats.runningNow), color: stats.runningNow > 0 ? "text-info" : "text-gray-500" },
     { label: "Runs", value: String(stats.totalRuns), muted: true },
     { label: "Tokens", value: formatTokens(stats.totalTokens), muted: true },
   ];

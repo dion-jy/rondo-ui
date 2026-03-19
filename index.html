@@ -6,7 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Rondo — Cron Dashboard</title>
   </head>
-  <body class="bg-surface text-gray-100" style="background:#0a0c11">
+  <body class="bg-surface text-gray-100">
+    <script>
+      // Apply saved theme before first paint to prevent flash
+      try { var t = localStorage.getItem('rondo-theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch(e) {}
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

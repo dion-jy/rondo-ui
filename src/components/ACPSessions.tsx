@@ -3,8 +3,8 @@ import { useSessions } from "../hooks/useSupabase";
 
 
 function statusDot(status?: string) {
-  if (status === "active" || status === "running") return "bg-emerald-400 animate-pulse";
-  if (status === "error") return "bg-rose-400";
+  if (status === "active" || status === "running") return "bg-success animate-pulse";
+  if (status === "error") return "bg-error";
   return "bg-gray-600";
 }
 

@@ -22,9 +22,9 @@ function formatTokens(n: number | null): string {
 }
 
 const STATUS_STYLES: Record<string, { chip: string; dot: string; bar: string; label: string }> = {
-  ok: { chip: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", dot: "bg-emerald-400", bar: "bg-emerald-500", label: "Success" },
-  error: { chip: "bg-rose-500/10 text-rose-400 border-rose-500/20", dot: "bg-rose-400", bar: "bg-rose-500", label: "Error" },
-  running: { chip: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20", dot: "bg-cyan-400 animate-pulse", bar: "bg-cyan-500", label: "Running" },
+  ok: { chip: "bg-success/10 text-success border-success/20", dot: "bg-success", bar: "bg-success", label: "Success" },
+  error: { chip: "bg-error/10 text-error border-error/20", dot: "bg-error", bar: "bg-error", label: "Error" },
+  running: { chip: "bg-info/10 text-info border-info/20", dot: "bg-info animate-pulse", bar: "bg-info", label: "Running" },
 };
 
 function getStatusStyle(status: string) {
@@ -111,9 +111,9 @@ export function RunDetailModal({ run, jobName, onClose }: RunDetailModalProps) {
 
           {/* Error */}
           {run.error && (
-            <div className="rounded-lg border border-rose-500/15 bg-rose-950/20 p-3">
-              <p className="text-[10px] uppercase tracking-wider text-rose-400/80 mb-1.5">Error</p>
-              <p className="text-[13px] text-rose-300/80 whitespace-pre-wrap break-all leading-relaxed">
+            <div className="rounded-lg border border-error/15 bg-error/10 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-error/80 mb-1.5">Error</p>
+              <p className="text-[13px] text-error/80 whitespace-pre-wrap break-all leading-relaxed">
                 {run.error}
               </p>
             </div>
@@ -123,7 +123,7 @@ export function RunDetailModal({ run, jobName, onClose }: RunDetailModalProps) {
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-600 pt-1 border-t border-border">
             {run.action && <span>{run.action}</span>}
             {run.delivered != null && (
-              <span className={run.delivered ? "text-emerald-400/70" : "text-rose-400/70"}>
+              <span className={run.delivered ? "text-success/70" : "text-error/70"}>
                 {run.delivered ? "Delivered" : "Not delivered"}
               </span>
             )}

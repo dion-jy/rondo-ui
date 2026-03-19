@@ -128,7 +128,7 @@ export function ExecutionLog({ runs, jobs, sessions, selectedJobId }: ExecutionL
                       {/* Status indicator */}
                       <span
                         className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                          run.status === "ok" ? "bg-emerald-400" : run.status === "running" ? "bg-cyan-400 animate-pulse" : "bg-rose-400"
+                          run.status === "ok" ? "bg-success" : run.status === "running" ? "bg-info animate-pulse" : "bg-error"
                         }`}
                       />
                       {/* Job name */}
@@ -171,9 +171,9 @@ export function ExecutionLog({ runs, jobs, sessions, selectedJobId }: ExecutionL
                           </div>
                         )}
                         {run.error && (
-                          <div className="rounded-md bg-rose-950/20 border border-rose-500/10 p-2">
-                            <p className="text-[10px] uppercase tracking-wider text-rose-400/80 mb-1">Error</p>
-                            <p className="text-rose-300/80 leading-relaxed">{run.error}</p>
+                          <div className="rounded-md bg-error/10 border border-error/10 p-2">
+                            <p className="text-[10px] uppercase tracking-wider text-error/80 mb-1">Error</p>
+                            <p className="text-error/80 leading-relaxed">{run.error}</p>
                           </div>
                         )}
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-gray-600 pt-0.5">
@@ -186,7 +186,7 @@ export function ExecutionLog({ runs, jobs, sessions, selectedJobId }: ExecutionL
                             </span>
                           )}
                           {run.delivered != null && (
-                            <span>Delivered: <span className={run.delivered ? "text-emerald-400" : "text-rose-400"}>{run.delivered ? "Yes" : "No"}</span></span>
+                            <span>Delivered: <span className={run.delivered ? "text-success" : "text-error"}>{run.delivered ? "Yes" : "No"}</span></span>
                           )}
                         </div>
                       </div>
@@ -211,7 +211,7 @@ export function ExecutionLog({ runs, jobs, sessions, selectedJobId }: ExecutionL
                       {/* Status indicator */}
                       <span
                         className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                          session.status === "done" ? "bg-emerald-400" : "bg-rose-400"
+                          session.status === "done" ? "bg-success" : "bg-error"
                         }`}
                       />
                       {/* Session name */}
