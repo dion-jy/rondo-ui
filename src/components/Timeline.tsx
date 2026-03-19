@@ -582,8 +582,8 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* ── Toolbar — flat, edge-to-edge ── */}
-      <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 px-2 sm:px-3 md:px-6 py-1.5 md:py-2 border-b border-white/[0.04] shrink-0">
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+      <div className="flex items-center justify-between gap-2 px-3 md:px-6 py-1.5 md:py-2 border-b border-white/[0.04] overflow-x-auto shrink-0">
+        <div className="flex items-center gap-3 shrink-0">
           {/* Status legend — desktop only */}
           <div className="hidden lg:flex items-center gap-2 text-[10px] text-gray-600">
             {layers.cron && (
@@ -601,7 +601,7 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
           <LayerToggle layers={layers} onToggle={toggleLayer} sessionCount={visibleSessions.length} />
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Jump to now */}
           <button
             onClick={() => {
@@ -644,28 +644,13 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
             >+</button>
           </div>
 
-          {/* Jump to now */}
-          <button
-            onClick={() => {
-              if (scrollRef.current) {
-                const ch = new Date().getHours() + new Date().getMinutes() / 60;
-                const tt = ch * hourHeight - scrollRef.current.clientHeight / 3;
-                scrollRef.current.scrollTo({ top: Math.max(0, tt), behavior: "smooth" });
-              }
-            }}
-            className="w-8 h-8 md:w-7 md:h-7 flex items-center justify-center text-gray-600 hover:text-accent-aqua hover:bg-accent-aqua/5 active:bg-accent-aqua/10 text-[10px] font-bold transition-colors"
-            title="Jump to now (T)"
-          >
-            Now
-          </button>
-
           {/* Day range — flat selector */}
           <div className="flex items-center bg-white/[0.02] p-0.5">
             {([1, 3, 5] as const).map((d) => (
               <button
                 key={d}
                 onClick={() => setOffset(d)}
-                className={`px-2 sm:px-2.5 py-1 text-[11px] font-medium transition-all ${
+                className={`px-2.5 py-1 text-[11px] font-medium transition-all ${
                   offset === d
                     ? "bg-accent/12 text-accent"
                     : "text-gray-600 hover:text-gray-300 active:text-white"
@@ -680,15 +665,15 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
 
       {/* ── Calendar grid — fills remaining viewport ── */}
       <div ref={scrollRef} className="overflow-auto flex-1 min-h-0">
-        <div className="min-w-[320px] sm:min-w-[600px]">
+        <div className="min-w-[600px]">
           {/* ── Day strip header ── */}
           <div className="sticky top-0 z-20 flex border-b border-white/[0.04] bg-surface/95 backdrop-blur-lg">
             {/* Time corner */}
-            <div className="sticky left-0 self-start z-40 w-8 sm:w-10 shrink-0 border-r border-white/[0.04] bg-surface/95 px-0.5 sm:px-1 py-2 text-[9px] text-gray-700 font-medium text-center select-none">
+            <div className="sticky left-0 self-start z-40 w-10 shrink-0 border-r border-white/[0.04] bg-surface/95 px-1 py-2 text-[9px] text-gray-700 font-medium text-center select-none">
               HR
             </div>
             {/* Day chips */}
-            <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${dayColumns.length}, minmax(80px,1fr))` }}>
+            <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${dayColumns.length}, minmax(100px,1fr))` }}>
               {dayColumns.map((day) => {
                 const today = isToday(day);
                 const weekday = day.toLocaleDateString(undefined, { weekday: "short" });
@@ -696,16 +681,16 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                 return (
                   <div
                     key={day.toISOString()}
-                    className="border-r border-white/[0.04] px-1 sm:px-2 py-1 sm:py-1.5 flex items-center gap-1 sm:gap-1.5"
+                    className="border-r border-white/[0.04] px-2 py-1.5 flex items-center gap-1.5"
                   >
-                    <span className={`text-[10px] sm:text-[11px] font-medium ${today ? "text-accent" : "text-gray-600"}`}>
+                    <span className={`text-[11px] font-medium ${today ? "text-accent" : "text-gray-600"}`}>
                       {weekday}
                     </span>
                     <span
                       className={
                         today
                           ? "today-chip"
-                          : "text-[10px] sm:text-[11px] text-gray-400 font-semibold"
+                          : "text-[11px] text-gray-400 font-semibold"
                       }
                     >
                       {dateNum}
@@ -719,11 +704,11 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
           {/* ── Grid body ── */}
           <div className="relative flex" style={{ height: totalHeight }}>
             {/* Sticky time axis */}
-            <div className="sticky left-0 self-start z-30 w-8 sm:w-10 shrink-0 border-r border-white/[0.04] bg-surface/95">
+            <div className="sticky left-0 self-start z-30 w-10 shrink-0 border-r border-white/[0.04] bg-surface/95">
               {Array.from({ length: 25 }, (_, i) => (
                 <div
                   key={i}
-                  className="absolute left-0 w-8 sm:w-10 -translate-y-1/2 text-[9px] text-gray-700 text-right pr-1 sm:pr-1.5 select-none tabular-nums"
+                  className="absolute left-0 w-10 -translate-y-1/2 text-[9px] text-gray-700 text-right pr-1.5 select-none tabular-nums"
                   style={{ top: i * hourHeight }}
                 >
                   {String(i % 24).padStart(2, "0")}
@@ -732,7 +717,7 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
             </div>
 
             {/* Day columns */}
-            <div className="relative flex-1" style={{ display: "grid", gridTemplateColumns: `repeat(${dayColumns.length}, minmax(80px,1fr))` }}>
+            <div className="relative flex-1" style={{ display: "grid", gridTemplateColumns: `repeat(${dayColumns.length}, minmax(100px,1fr))` }}>
               {dayColumns.map((day) => {
                 const dayStartMs = day.getTime();
                 const dayEndMs = dayStartMs + DAY_MS;
