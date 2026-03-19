@@ -293,13 +293,13 @@ type SessionBoxExt = SessionBox & {
   isLong: boolean; // >4h
 };
 
-function getSessionTimeRange(session: ACPSession, dayStartMs: number, dayEndMs: number): SessionBoxExt | null {
+function getSessionTimeRange(session: ACPSession, dayStartMs: number, dayEndMs: number, nowMs?: number): SessionBoxExt | null {
   const startMs = session.startedAt ?? session.updatedAt ?? 0;
   if (startMs === 0) return null;
 
   let endMs: number;
   if (session.status === "running" || session.status === "active") {
-    endMs = Date.now();
+    endMs = nowMs ?? Date.now();
   } else {
     endMs = session.updatedAt ?? startMs;
   }
@@ -482,10 +482,18 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
     try { localStorage.setItem(LAYER_KEY, JSON.stringify(layers)); } catch { /* noop */ }
   }, [layers]);
 
+  // Check if any sessions are currently running
+  const hasRunningSessions = useMemo(
+    () => sessions.some((s) => s.status === "running" || s.status === "active"),
+    [sessions]
+  );
+
+  // Update 'now' every 5s when sessions are running (for live bar growth), otherwise every 60s
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 60_000);
+    const interval = hasRunningSessions ? 5_000 : 60_000;
+    const t = setInterval(() => setNow(new Date()), interval);
     return () => clearInterval(t);
-  }, []);
+  }, [hasRunningSessions]);
 
   // Scroll to current hour on mount
   useEffect(() => {
@@ -567,10 +575,10 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
   const visibleSessions = useMemo(
     () => sessions.filter((s) => {
       const start = s.startedAt ?? s.updatedAt ?? 0;
-      const end = (s.status === "running" || s.status === "active") ? Date.now() : (s.updatedAt ?? start);
+      const end = (s.status === "running" || s.status === "active") ? now.getTime() : (s.updatedAt ?? start);
       return end >= rangeStart.getTime() && start < rangeEnd.getTime();
     }),
-    [sessions, rangeStart, rangeEnd]
+    [sessions, rangeStart, rangeEnd, now]
   );
 
   const totalHeight = 24 * hourHeight;
@@ -725,7 +733,7 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
 
                 const realSessionBoxes: SessionBoxExt[] = layers.sessions
                   ? visibleSessions
-                      .map((s) => getSessionTimeRange(s, dayStartMs, dayEndMs))
+                      .map((s) => getSessionTimeRange(s, dayStartMs, dayEndMs, now.getTime()))
                       .filter((b): b is SessionBoxExt => b !== null)
                       .filter((b) => b.endMs - b.startMs >= 30_000) // filter failed spawns (<30s)
                   : [];
@@ -802,16 +810,22 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                           {sb.clampedTop && (
                             <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 text-[8px] text-white/60 leading-none">▴</span>
                           )}
+                          {/* LIVE badge for running sessions */}
+                          {isRunning && height >= 28 && (
+                            <span className="absolute top-0.5 right-0.5 session-live-badge">
+                              LIVE
+                            </span>
+                          )}
                           {showLabel && (
                             <span className={`block px-1.5 text-[9px] leading-tight font-medium truncate drop-shadow-sm ${isScheduled ? "text-accent-aqua/70" : "text-white/90"} ${sb.clampedTop ? "mt-2" : ""}`}>
                               {isRunning && <span className="inline-block w-1 h-1 rounded-full bg-accent-aqua animate-pulse mr-1 align-middle" />}
-                              {isScheduled && "⏱ "}
+                              {isScheduled && "\u23F1 "}
                               {sb.session.label ?? sb.session.key}
                             </span>
                           )}
                           {showLabel && isScheduled && height >= 32 && (
                             <span className="block px-1.5 text-[8px] leading-tight text-accent-aqua/50 truncate">
-                              Scheduled · {formatDuration(sb.endMs - sb.startMs)}
+                              Scheduled \u00B7 {formatDuration(sb.endMs - sb.startMs)}
                             </span>
                           )}
                           {/* Long session fade gradient */}

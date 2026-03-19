@@ -127,10 +127,15 @@ export function useStats(jobs: CronJob[], runs: CronRun[]): CronStats {
 
 // ── useSessions ──
 
-export function useSessions(refreshIntervalMs = 30_000) {
+const FAST_POLL_MS = 10_000;
+const SLOW_POLL_MS = 30_000;
+
+export function useSessions(refreshIntervalMs = SLOW_POLL_MS) {
   const [sessions, setSessions] = useState<ACPSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const currentIntervalRef = useRef(refreshIntervalMs);
 
   const fetchSessions = useCallback(async () => {
     const client = getClient();
@@ -166,18 +171,31 @@ export function useSessions(refreshIntervalMs = 30_000) {
 
       setSessions(mapped);
       setError(null);
+
+      // Adaptive polling: faster when sessions are running
+      const hasRunning = mapped.some(
+        (s) => s.status === "running" || s.status === "active"
+      );
+      const desiredInterval = hasRunning ? FAST_POLL_MS : refreshIntervalMs;
+      if (desiredInterval !== currentIntervalRef.current) {
+        currentIntervalRef.current = desiredInterval;
+        if (timerRef.current) clearInterval(timerRef.current);
+        timerRef.current = setInterval(fetchSessions, desiredInterval);
+      }
     } catch (err) {
       setSessions([]);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refreshIntervalMs]);
 
   useEffect(() => {
     fetchSessions();
-    const t = setInterval(fetchSessions, refreshIntervalMs);
-    return () => clearInterval(t);
+    timerRef.current = setInterval(fetchSessions, refreshIntervalMs);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [fetchSessions, refreshIntervalMs]);
 
   return { sessions, loading, error, refetch: fetchSessions };
