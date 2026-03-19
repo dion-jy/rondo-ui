@@ -121,9 +121,9 @@ function generateScheduledRuns(jobs: CronJob[], dayStartMs: number, dayEndMs: nu
       continue;
     }
 
-    // Walk forward until past dayEndMs, max 50 per job
+    // Walk forward until past dayEndMs, max 3 per job
     let count = 0;
-    while (cursor < dayEndMs && count < 50) {
+    while (cursor < dayEndMs && count < 3) {
       if (cursor >= Math.max(dayStartMs, now)) {
         const avgDuration = job.last_duration_ms ?? 30_000;
         projections.push({
@@ -194,7 +194,7 @@ function generateScheduledSessions(jobs: CronJob[], dayStartMs: number, dayEndMs
     }
 
     let count = 0;
-    while (cursor < dayEndMs && count < 20) {
+    while (cursor < dayEndMs && count < 3) {
       if (cursor >= Math.max(dayStartMs, now)) {
         const estDuration = job.last_duration_ms ?? 60_000;
         projections.push({
@@ -792,8 +792,11 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                             left: 0,
                             width: "28%",
                             zIndex: 1,
+                            ...(isScheduled ? { borderStyle: "dashed", borderWidth: "1px" } : {}),
                           }}
-                          title={`${sb.session.label ?? sb.session.key} · ${sb.session.status ?? "unknown"}\n${timeRange}${sb.session.duration ? ` · ${sb.session.duration}` : ""}${sb.session.agent ? `\n${sb.session.agent}` : ""}${isScheduled ? " (projected)" : ""}`}
+                          title={isScheduled
+                            ? `⏱ Scheduled ACP Session\nJob: ${sb.session.label ?? sb.session.key}\nTime: ${timeRange}\nEst. duration: ${formatDuration(sb.endMs - sb.startMs)}`
+                            : `${sb.session.label ?? sb.session.key} · ${sb.session.status ?? "unknown"}\n${timeRange}${sb.session.duration ? ` · ${sb.session.duration}` : ""}${sb.session.agent ? `\n${sb.session.agent}` : ""}`}
                         >
                           {/* Continuation arrow at top (session started before this day) */}
                           {sb.clampedTop && (
@@ -804,6 +807,11 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                               {isRunning && <span className="inline-block w-1 h-1 rounded-full bg-accent-aqua animate-pulse mr-1 align-middle" />}
                               {isScheduled && "⏱ "}
                               {sb.session.label ?? sb.session.key}
+                            </span>
+                          )}
+                          {showLabel && isScheduled && height >= 32 && (
+                            <span className="block px-1.5 text-[8px] leading-tight text-accent-aqua/50 truncate">
+                              Scheduled · {formatDuration(sb.endMs - sb.startMs)}
                             </span>
                           )}
                           {/* Long session fade gradient */}
