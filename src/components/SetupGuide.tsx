@@ -55,7 +55,7 @@ const SQL_SCHEMA = `-- Rondo: Supabase Schema
 CREATE TABLE IF NOT EXISTS cron_jobs (
   id                TEXT NOT NULL,
   instance_id       TEXT NOT NULL,
-  user_id           TEXT,
+  user_id           UUID,
   name              TEXT NOT NULL,
   agent_id          TEXT,
   enabled           BOOLEAN NOT NULL DEFAULT true,
@@ -91,7 +91,7 @@ CREATE INDEX IF NOT EXISTS idx_cron_jobs_user ON cron_jobs (user_id);
 CREATE TABLE IF NOT EXISTS cron_runs (
   id                TEXT NOT NULL,
   instance_id       TEXT NOT NULL,
-  user_id           TEXT,
+  user_id           UUID,
   job_id            TEXT NOT NULL,
   timestamp         TIMESTAMPTZ NOT NULL,
   status            TEXT NOT NULL,
@@ -119,7 +119,7 @@ CREATE INDEX IF NOT EXISTS idx_cron_runs_user ON cron_runs (user_id);
 -- acp_sessions
 CREATE TABLE IF NOT EXISTS acp_sessions (
   id                TEXT PRIMARY KEY,
-  user_id           TEXT,
+  user_id           UUID,
   agent_id          TEXT,
   status            TEXT NOT NULL DEFAULT 'running',
   started_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -133,22 +133,27 @@ CREATE TABLE IF NOT EXISTS acp_sessions (
 
 CREATE INDEX IF NOT EXISTS idx_acp_sessions_user ON acp_sessions (user_id);
 
--- RLS
+-- RLS: plugin uses service_role key (bypasses RLS), UI uses anon key + JWT
 ALTER TABLE cron_jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cron_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE acp_sessions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow all access to cron_jobs" ON cron_jobs FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access to cron_runs" ON cron_runs FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access to acp_sessions" ON acp_sessions FOR ALL USING (true) WITH CHECK (true);`;
+CREATE POLICY "Users can view own jobs" ON cron_jobs FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Service role full access jobs" ON cron_jobs FOR ALL USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+
+CREATE POLICY "Users can view own runs" ON cron_runs FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Service role full access runs" ON cron_runs FOR ALL USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+
+CREATE POLICY "Users can view own sessions" ON acp_sessions FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Service role full access sessions" ON acp_sessions FOR ALL USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');`;
 
 const PLUGIN_CONFIG = `{
   "extensions": {
     "rondo": {
       "supabaseUrl": "https://your-project.supabase.co",
-      "supabaseKey": "your-anon-key",
+      "supabaseKey": "your-service-role-key",
       "syncIntervalMs": 30000,
-      "userId": "your-unique-user-id"
+      "supabaseAuthEmail": "you@example.com"
     }
   }
 }`;
@@ -201,7 +206,7 @@ export function SetupGuide({ onBack }: { onBack: () => void }) {
             <ol className="text-sm text-gray-400 space-y-1.5 list-decimal list-inside">
               <li>Create a new <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Supabase project</a></li>
               <li>Open the SQL Editor and run the schema below</li>
-              <li>Go to Settings &rarr; API to get your <strong className="text-gray-300">Project URL</strong> and <strong className="text-gray-300">anon key</strong></li>
+              <li>Go to Settings &rarr; API to get your <strong className="text-gray-300">Project URL</strong>, <strong className="text-gray-300">anon key</strong>, and <strong className="text-gray-300">service_role key</strong></li>
             </ol>
             <CodeBlock language="sql" code={SQL_SCHEMA} />
           </div>
@@ -220,9 +225,9 @@ export function SetupGuide({ onBack }: { onBack: () => void }) {
             <CodeBlock language="json" code={PLUGIN_CONFIG} />
             <div className="text-[12px] text-gray-500 space-y-1">
               <p><strong className="text-gray-400">supabaseUrl</strong> &mdash; your Supabase project URL</p>
-              <p><strong className="text-gray-400">supabaseKey</strong> &mdash; your Supabase anon key</p>
+              <p><strong className="text-gray-400">supabaseKey</strong> &mdash; your Supabase <em>service_role</em> key (needed to write data and resolve auth users)</p>
               <p><strong className="text-gray-400">syncIntervalMs</strong> &mdash; sync frequency in ms (default: 300000)</p>
-              <p><strong className="text-gray-400">userId</strong> &mdash; optional unique ID to tag your data for multi-user setups</p>
+              <p><strong className="text-gray-400">supabaseAuthEmail</strong> &mdash; the email you use to sign in via Google/GitHub SSO &mdash; the plugin auto-resolves this to your Supabase Auth UUID</p>
             </div>
           </div>
         </section>
