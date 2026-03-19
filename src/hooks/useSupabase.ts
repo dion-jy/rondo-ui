@@ -1,19 +1,6 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { CronJob, CronRun, ACPSession } from "../types";
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-let supabase: SupabaseClient | null = null;
-
-function getClient(): SupabaseClient | null {
-  if (!supabaseUrl || !supabaseAnonKey) return null;
-  if (!supabase) {
-    supabase = createClient(supabaseUrl, supabaseAnonKey);
-  }
-  return supabase;
-}
+import { getSupabaseClient, isSupabaseConfigured } from "../lib/supabase";
 
 // ── useJobs ──
 
@@ -24,7 +11,7 @@ export function useJobs(refreshIntervalMs = 30_000) {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchJobs = useCallback(async () => {
-    const client = getClient();
+    const client = getSupabaseClient();
     if (!client) {
       setError("Supabase not configured");
       setLoading(false);
@@ -67,7 +54,7 @@ export function useRuns(jobId?: string, limit = 50, refreshIntervalMs = 30_000) 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchRuns = useCallback(async () => {
-    const client = getClient();
+    const client = getSupabaseClient();
     if (!client) {
       setError("Supabase not configured");
       setLoading(false);
@@ -143,7 +130,7 @@ export function useSessions(refreshIntervalMs = SLOW_POLL_MS) {
   const currentIntervalRef = useRef(refreshIntervalMs);
 
   const fetchSessions = useCallback(async () => {
-    const client = getClient();
+    const client = getSupabaseClient();
     if (!client) {
       setError("Supabase not configured");
       setLoading(false);
@@ -215,6 +202,4 @@ function formatDuration(ms: number): string {
   return `${s}s`;
 }
 
-export function isConfigured(): boolean {
-  return !!(supabaseUrl && supabaseAnonKey);
-}
+export { isSupabaseConfigured as isConfigured };
