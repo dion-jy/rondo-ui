@@ -246,8 +246,8 @@
   }
 
   .session-bar-scheduled {
-    background: rgba(51, 209, 198, 0.06);
-    border: 1px dashed rgba(51, 209, 198, 0.35);
+    background: rgba(51, 209, 198, 0.12);
+    border: 2px dashed rgba(51, 209, 198, 0.55);
     border-radius: 3px;
   }
 
@@ -318,16 +318,39 @@
     border-left: 3px solid var(--rondo-brass);
   }
 
-  /* Scheduled (future projected) — dashed border, translucent */
+  /* Scheduled (future projected) — dashed border, strong visibility */
   .ev-scheduled {
-    background: rgba(124,108,255,0.15);
-    border: 1px dashed rgba(124,108,255,0.35);
-    border-left: 3px dashed var(--rondo-iris);
-    opacity: 0.7;
+    background: rgba(124,108,255,0.45);
+    border: 2px dashed rgba(124,108,255,0.80);
+    border-left: 3px dashed var(--rondo-iris-light);
+    min-height: 22px;
   }
   .ev-scheduled:hover {
-    opacity: 1;
-    background: rgba(124,108,255,0.25);
+    background: rgba(124,108,255,0.60);
+  }
+
+  /* Scheduled legend swatch */
+  .scheduled-legend-swatch {
+    background: rgba(124,108,255,0.22);
+    border: 1.5px dashed rgba(124,108,255,0.6);
+    width: 8px;
+    height: 8px;
+  }
+
+  /* Scheduled count marker chip at top of day column */
+  .scheduled-marker {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 1px 5px;
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--rondo-iris-light);
+    background: rgba(124,108,255,0.15);
+    border: 1px dashed rgba(124,108,255,0.4);
+    border-radius: 3px;
+    line-height: 14px;
+    pointer-events: auto;
   }
 
   /* ── Now indicator — Aqua Pulse ── */

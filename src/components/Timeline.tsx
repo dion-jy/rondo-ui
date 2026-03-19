@@ -43,16 +43,20 @@ function getInitialZoom(): number {
 }
 
 function getInitialLayers(): { cron: boolean; sessions: boolean } {
+  const defaults = { cron: true, sessions: true };
   try {
     const saved = localStorage.getItem(LAYER_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (typeof parsed?.cron === "boolean" && typeof parsed?.sessions === "boolean") {
-        return parsed;
+      if (parsed && typeof parsed === "object") {
+        return {
+          cron: typeof parsed.cron === "boolean" ? parsed.cron : defaults.cron,
+          sessions: typeof parsed.sessions === "boolean" ? parsed.sessions : defaults.sessions,
+        };
       }
     }
   } catch { /* noop */ }
-  return { cron: true, sessions: true };
+  return defaults;
 }
 
 function evClass(status: string) {
@@ -586,6 +590,7 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded ev-ok" />OK</span>
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded ev-error" />Err</span>
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded ev-running" />Run</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded scheduled-legend-swatch" />Sched</span>
               </>
             )}
             {layers.sessions && (
@@ -664,7 +669,7 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
           {/* ── Day strip header ── */}
           <div className="sticky top-0 z-20 flex border-b border-white/[0.04] bg-surface/95 backdrop-blur-lg">
             {/* Time corner */}
-            <div className="sticky left-0 self-start z-40 w-10 shrink-0 border-r border-white/[0.04] bg-surface/95 px-1 py-2 text-[9px] text-gray-700 font-medium text-center select-none">
+            <div className="sticky left-0 self-start z-40 w-10 shrink-0 border-r border-white/[0.06] bg-surface/95 px-1 py-2 text-[9px] text-gray-500 font-medium text-center select-none">
               HR
             </div>
             {/* Day chips */}
@@ -699,11 +704,11 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
           {/* ── Grid body ── */}
           <div className="relative flex" style={{ height: totalHeight }}>
             {/* Sticky time axis */}
-            <div className="sticky left-0 self-start z-30 w-10 shrink-0 border-r border-white/[0.04] bg-surface/95">
+            <div className="sticky left-0 self-start z-30 w-10 shrink-0 border-r border-white/[0.06] bg-surface/95">
               {Array.from({ length: 25 }, (_, i) => (
                 <div
                   key={i}
-                  className="absolute left-0 w-10 -translate-y-1/2 text-[9px] text-gray-700 text-right pr-1.5 select-none tabular-nums"
+                  className="absolute left-0 w-10 -translate-y-1/2 text-[9px] text-gray-300 text-right pr-1.5 select-none tabular-nums font-medium"
                   style={{ top: i * hourHeight }}
                 >
                   {String(i % 24).padStart(2, "0")}
@@ -726,7 +731,9 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                         .filter((b): b is SessionBoxExt => b !== null)
                         .filter((b) => b.endMs - b.startMs >= 30_000),
                       ...generateScheduledSessions(jobs, dayStartMs, dayEndMs).map((sb) => ({
-                        ...sb, clampedTop: false, clampedBottom: false, isLong: false, col: 0, colCount: 1,
+                        ...sb,
+                        endMs: Math.max(sb.endMs, sb.startMs + VISUAL_MIN_MS),
+                        clampedTop: false, clampedBottom: false, isLong: false, col: 0, colCount: 1,
                       })),
                     ]
                   : [];
@@ -769,12 +776,19 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                 });
 
                 const hasActivity = sessionBoxes.length > 0 || allCronRuns.length > 0;
+                const scheduledCount = scheduledCronRuns.length + (layers.sessions ? generateScheduledSessions(jobs, dayStartMs, dayEndMs).length : 0);
 
                 return (
                   <div key={day.toISOString()} className={`relative border-r border-white/[0.03] ${today ? "today-column" : ""}`}>
+                    {/* Scheduled fallback marker — visible chip at top when scheduled events exist */}
+                    {scheduledCount > 0 && (
+                      <div className="absolute top-1 right-1 z-10 scheduled-marker" title={`${scheduledCount} scheduled run${scheduledCount > 1 ? "s" : ""} today`}>
+                        {"\u23F1"} {scheduledCount}
+                      </div>
+                    )}
                     {/* Hour gridlines */}
                     {Array.from({ length: 25 }, (_, i) => (
-                      <div key={i} className="absolute left-0 right-0 border-t border-white/[0.025]" style={{ top: i * hourHeight }} />
+                      <div key={i} className="absolute left-0 right-0 border-t border-white/[0.06]" style={{ top: i * hourHeight }} />
                     ))}
 
                     {/* Current time indicator on today */}
@@ -796,10 +810,11 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                     {/* Session bars (background) */}
                     {sessionBoxes.map((sb) => {
                       const top = ((sb.startMs - dayStartMs) / DAY_MS) * totalHeight;
-                      const height = Math.max(((sb.endMs - sb.startMs) / DAY_MS) * totalHeight, 6);
+                      const isScheduled = sb.session.status === "scheduled";
+                      const minSessionH = isScheduled ? 22 : 6;
+                      const height = Math.max(((sb.endMs - sb.startMs) / DAY_MS) * totalHeight, minSessionH);
                       const showLabel = height >= 18;
                       const isRunning = sb.session.status === "running" || sb.session.status === "active";
-                      const isScheduled = sb.session.status === "scheduled";
                       const timeRange = `${formatTimeShort(sb.startMs)} – ${formatTimeShort(sb.endMs)}`;
 
                       return (
@@ -829,15 +844,15 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                               LIVE
                             </span>
                           )}
-                          {showLabel && (
-                            <span className={`block px-1.5 text-[9px] leading-tight font-medium truncate drop-shadow-sm ${isScheduled ? "text-accent-aqua/70" : "text-white/90"} ${sb.clampedTop ? "mt-2" : ""}`}>
+                          {(showLabel || isScheduled) && (
+                            <span className={`block px-1.5 text-[9px] leading-tight font-semibold truncate drop-shadow-sm ${isScheduled ? "text-accent-aqua" : "text-white/90"} ${sb.clampedTop ? "mt-2" : ""}`}>
                               {isRunning && <span className="inline-block w-1 h-1 rounded-full bg-accent-aqua animate-pulse mr-1 align-middle" />}
                               {isScheduled && "\u23F1 "}
                               {sb.session.label ?? sb.session.key}
                             </span>
                           )}
-                          {showLabel && isScheduled && height >= 32 && (
-                            <span className="block px-1.5 text-[8px] leading-tight text-accent-aqua/50 truncate">
+                          {isScheduled && height >= 32 && (
+                            <span className="block px-1.5 text-[8px] leading-tight text-accent-aqua/70 truncate">
                               Scheduled \u00B7 {formatDuration(sb.endMs - sb.startMs)}
                             </span>
                           )}
@@ -855,13 +870,16 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
 
                     {/* ── Cron event cards ── */}
                     {events.map((e) => {
+                      const isScheduled = e.run.status === "scheduled";
                       const top = ((e.startMs - dayStartMs) / DAY_MS) * totalHeight;
-                      const height = Math.max(((e.endMs - e.startMs) / DAY_MS) * totalHeight, 18);
+                      const minH = isScheduled ? 24 : 18;
+                      const height = Math.max(((e.visualEndMs - e.startMs) / DAY_MS) * totalHeight, minH);
                       const width = 100 / e.colCount;
                       const left = e.col * width;
-                      const label = jobNameMap.get(e.run.job_id) ?? e.run.action ?? "";
+                      const rawLabel = jobNameMap.get(e.run.job_id) ?? e.run.action ?? "";
+                      const label = isScheduled ? `\u23F1 Scheduled · ${rawLabel}` : rawLabel;
                       const dur = formatDuration(e.run.duration_ms);
-                      const showTitle = height >= 12;
+                      const showTitle = height >= 18;
                       const showMeta = height >= 38;
                       const showDuration = height >= 52;
                       const showDot = !showTitle && height >= 6;
@@ -869,8 +887,8 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                       return (
                         <button
                           key={e.run.id}
-                          onClick={() => setSelectedRun(e.run)}
-                          className={`timeline-bar ${evClass(e.run.status)} group`}
+                          onClick={() => !isScheduled ? setSelectedRun(e.run) : undefined}
+                          className={`timeline-bar ${evClass(e.run.status)} group ${isScheduled ? "cursor-default" : ""}`}
                           style={{
                             top: `${top}px`,
                             height: `${height}px`,
@@ -879,16 +897,18 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                             zIndex: 2,
                             padding: showTitle ? "1px 4px" : undefined,
                           }}
-                          title={`${e.run.status} \u00B7 ${new Date(e.run.timestamp).toLocaleString()}\n${e.run.summary ?? ""}`}
+                          title={isScheduled
+                            ? `\u23F1 Scheduled\nJob: ${rawLabel}\nTime: ${formatTimeShort(e.startMs)} \u2013 ${formatTimeShort(e.endMs)}\nEst. duration: ${dur}`
+                            : `${e.run.status} \u00B7 ${new Date(e.run.timestamp).toLocaleString()}\n${e.run.summary ?? ""}`}
                         >
                           {showTitle && (
-                            <span className="block text-[9px] leading-none text-white font-semibold truncate overflow-hidden whitespace-nowrap">
+                            <span className={`block text-[10px] leading-tight font-semibold truncate overflow-hidden whitespace-nowrap ${isScheduled ? "text-white" : "text-white"}`}>
                               {label}
                             </span>
                           )}
                           {showMeta && (
                             <span className="block text-[9px] leading-tight text-white/60 truncate mt-0.5">
-                              {e.run.status}{e.run.model ? ` \u00B7 ${e.run.model}` : ""}
+                              {isScheduled ? "Scheduled" : e.run.status}{e.run.model ? ` \u00B7 ${e.run.model}` : ""}
                             </span>
                           )}
                           {showDuration && (
