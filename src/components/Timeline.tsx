@@ -45,7 +45,12 @@ function getInitialZoom(): number {
 function getInitialLayers(): { cron: boolean; sessions: boolean } {
   try {
     const saved = localStorage.getItem(LAYER_KEY);
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (typeof parsed?.cron === "boolean" && typeof parsed?.sessions === "boolean") {
+        return parsed;
+      }
+    }
   } catch { /* noop */ }
   return { cron: true, sessions: true };
 }

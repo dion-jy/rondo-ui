@@ -60,10 +60,11 @@ export function useJobs(refreshIntervalMs = 30_000) {
 
 // ── useRuns ──
 
-export function useRuns(jobId?: string, limit = 50) {
+export function useRuns(jobId?: string, limit = 50, refreshIntervalMs = 30_000) {
   const [runs, setRuns] = useState<CronRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchRuns = useCallback(async () => {
     const client = getClient();
@@ -97,7 +98,11 @@ export function useRuns(jobId?: string, limit = 50) {
 
   useEffect(() => {
     fetchRuns();
-  }, [fetchRuns]);
+    timerRef.current = setInterval(fetchRuns, refreshIntervalMs);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [fetchRuns, refreshIntervalMs]);
 
   return { runs, loading, error, refetch: fetchRuns };
 }

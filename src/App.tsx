@@ -138,6 +138,8 @@ export function App() {
       <header className="border-b border-border bg-surface z-30 shrink-0">
         <div className="flex items-center justify-between px-4 md:px-6 py-2">
           <RondoLogo />
+          {/* Mobile: show user email */}
+          <span className="md:hidden text-[10px] text-gray-600 truncate max-w-[120px]">{user.email}</span>
           <div className="hidden md:flex items-center gap-3">
             <div className="seg-control">
               <button
@@ -244,6 +246,15 @@ export function App() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
             </svg>
             Jobs
+          </button>
+          <button
+            onClick={signOut}
+            className="flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium text-gray-600 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+            </svg>
+            Sign out
           </button>
         </div>
       </nav>
