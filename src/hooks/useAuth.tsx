@@ -11,10 +11,13 @@ function getClient(): SupabaseClient | null {
   return _client;
 }
 
+type OAuthProvider = "google" | "github";
+
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInWithGitHub: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -22,6 +25,7 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   loading: true,
   signInWithGoogle: async () => {},
+  signInWithGitHub: async () => {},
   signOut: async () => {},
 });
 
@@ -50,14 +54,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signInWithGoogle = useCallback(async () => {
+  const signInWithProvider = useCallback(async (provider: OAuthProvider) => {
     const client = getClient();
     if (!client) return;
     await client.auth.signInWithOAuth({
-      provider: "google",
+      provider,
       options: { redirectTo: window.location.origin },
     });
   }, []);
+
+  const signInWithGoogle = useCallback(() => signInWithProvider("google"), [signInWithProvider]);
+  const signInWithGitHub = useCallback(() => signInWithProvider("github"), [signInWithProvider]);
 
   const signOut = useCallback(async () => {
     const client = getClient();
@@ -66,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signInWithGitHub, signOut }}>
       {children}
     </AuthContext.Provider>
   );
