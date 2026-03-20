@@ -6,6 +6,26 @@ React dashboard for monitoring OpenClaw cron jobs and agent sessions.
 
 **Live:** [rondo-ui.vercel.app](https://rondo-ui.vercel.app)
 
+## Setup
+
+1. Install the plugin:
+   ```bash
+   openclaw plugins install @dion-jy/rondo
+   openclaw gateway restart
+   ```
+
+2. Open [rondo-ui.vercel.app](https://rondo-ui.vercel.app) and sign in with Google
+
+3. Click **Link Device** and copy the link
+
+4. Link your device (choose one):
+   - **Chat:** Send `/rondo link <URL>` in Telegram/WhatsApp
+   - **Terminal:** Run `openclaw rondo link <URL>`
+
+5. Done! Your cron jobs will appear on the dashboard.
+
+See the [Rondo plugin README](https://github.com/dion-jy/rondo) for full plugin documentation.
+
 ## Architecture
 
 ```
@@ -31,7 +51,7 @@ OpenClaw Gateway          Supabase          Rondo UI (Vercel)
 - **Execution log** — merged cron runs + ACP sessions, filterable by status
 - **ACP sessions** — live agent session tracking with adaptive polling
 - **Device linking** — generate one-time tokens to link OpenClaw instances
-- **5 dark themes** — Midnight, Nord, Solarized, Dracula, Rosé Pine
+- **5 dark themes** — Midnight, Nord, Solarized, Dracula, Rose Pine
 - **Responsive** — mobile-friendly with bottom navigation
 
 ## Development

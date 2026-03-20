@@ -36,9 +36,11 @@ function CodeBlock({ code, language }: { code: string; language?: string }) {
   );
 }
 
-function StepNumber({ n }: { n: number }) {
+function StepNumber({ n, active }: { n: number; active?: boolean }) {
   return (
-    <span className="flex items-center justify-center w-7 h-7 rounded-full text-[13px] font-bold shrink-0" style={{
+    <span className={`flex items-center justify-center w-8 h-8 rounded-full text-[13px] font-bold shrink-0 transition-all ${
+      active ? "scale-110" : ""
+    }`} style={{
       background: "rgb(var(--rondo-iris-rgb) / 0.15)",
       color: "var(--rondo-iris-light)",
       border: "1px solid rgb(var(--rondo-iris-rgb) / 0.3)",
@@ -48,122 +50,24 @@ function StepNumber({ n }: { n: number }) {
   );
 }
 
-const SQL_SCHEMA = `-- Rondo: Supabase Schema
--- Run this in your Supabase SQL Editor
+function StepConnector() {
+  return (
+    <div className="ml-[15px] w-px h-4 bg-border" />
+  );
+}
 
--- cron_jobs
-CREATE TABLE IF NOT EXISTS cron_jobs (
-  id                TEXT NOT NULL,
-  instance_id       TEXT NOT NULL,
-  user_id           UUID,
-  name              TEXT NOT NULL,
-  agent_id          TEXT,
-  enabled           BOOLEAN NOT NULL DEFAULT true,
-  schedule_kind     TEXT,
-  schedule_every_ms BIGINT,
-  schedule_expr     TEXT,
-  schedule_at       TEXT,
-  session_target    TEXT,
-  wake_mode         TEXT,
-  delete_after_run  BOOLEAN NOT NULL DEFAULT false,
-  delivery_mode     TEXT,
-  delivery_channel  TEXT,
-  payload_model     TEXT,
-  payload_thinking  TEXT,
-  timeout_seconds   INTEGER,
-  next_run_at       TIMESTAMPTZ,
-  last_run_at       TIMESTAMPTZ,
-  last_status       TEXT,
-  last_duration_ms  INTEGER,
-  last_error        TEXT,
-  consecutive_errors INTEGER NOT NULL DEFAULT 0,
-  is_running        BOOLEAN NOT NULL DEFAULT false,
-  created_at        TIMESTAMPTZ,
-  updated_at        TIMESTAMPTZ,
-  synced_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (id, instance_id)
-);
+const INSTALL_CMD = `openclaw plugins install @dion-jy/rondo
+openclaw gateway restart`;
 
-CREATE INDEX IF NOT EXISTS idx_cron_jobs_instance ON cron_jobs (instance_id);
-CREATE INDEX IF NOT EXISTS idx_cron_jobs_user ON cron_jobs (user_id);
-
--- cron_runs
-CREATE TABLE IF NOT EXISTS cron_runs (
-  id                TEXT NOT NULL,
-  instance_id       TEXT NOT NULL,
-  user_id           UUID,
-  job_id            TEXT NOT NULL,
-  timestamp         TIMESTAMPTZ NOT NULL,
-  status            TEXT NOT NULL,
-  action            TEXT,
-  summary           TEXT,
-  error             TEXT,
-  duration_ms       INTEGER,
-  model             TEXT,
-  provider          TEXT,
-  session_id        TEXT,
-  delivered         BOOLEAN,
-  delivery_status   TEXT,
-  input_tokens      INTEGER,
-  output_tokens     INTEGER,
-  total_tokens      INTEGER,
-  synced_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (id, instance_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_cron_runs_instance ON cron_runs (instance_id);
-CREATE INDEX IF NOT EXISTS idx_cron_runs_job ON cron_runs (instance_id, job_id);
-CREATE INDEX IF NOT EXISTS idx_cron_runs_timestamp ON cron_runs (instance_id, timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_cron_runs_user ON cron_runs (user_id);
-
--- acp_sessions
-CREATE TABLE IF NOT EXISTS acp_sessions (
-  id                TEXT PRIMARY KEY,
-  user_id           UUID,
-  agent_id          TEXT,
-  status            TEXT NOT NULL DEFAULT 'running',
-  started_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-  ended_at          TIMESTAMPTZ,
-  model             TEXT,
-  input_tokens      INTEGER,
-  output_tokens     INTEGER,
-  total_tokens      INTEGER,
-  synced_at         TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_acp_sessions_user ON acp_sessions (user_id);
-
--- RLS: plugin uses service_role key (bypasses RLS), UI uses anon key + JWT
-ALTER TABLE cron_jobs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE cron_runs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE acp_sessions ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view own jobs" ON cron_jobs FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Service role full access jobs" ON cron_jobs FOR ALL USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
-
-CREATE POLICY "Users can view own runs" ON cron_runs FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Service role full access runs" ON cron_runs FOR ALL USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
-
-CREATE POLICY "Users can view own sessions" ON acp_sessions FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Service role full access sessions" ON acp_sessions FOR ALL USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');`;
-
-const PLUGIN_CONFIG = `{
-  "extensions": {
-    "rondo": {
-      "supabaseUrl": "https://your-project.supabase.co",
-      "supabaseKey": "your-service-role-key",
-      "syncIntervalMs": 30000,
-      "supabaseAuthEmail": "you@example.com"
-    }
-  }
-}`;
+const LINK_CHAT_CMD = `/rondo link <URL>`;
+const LINK_CLI_CMD = `openclaw rondo link <URL>`;
 
 export function SetupGuide({ onBack }: { onBack: () => void }) {
   return (
     <div className="flex-1 overflow-auto">
-      <div className="max-w-3xl mx-auto px-4 md:px-6 py-8 space-y-8 animate-fade-in">
+      <div className="max-w-2xl mx-auto px-4 md:px-6 py-8 space-y-0 animate-fade-in">
         {/* Header */}
-        <div>
+        <div className="mb-8">
           <button
             onClick={onBack}
             className="inline-flex items-center gap-1.5 text-[12px] text-gray-500 hover:text-accent transition-colors mb-4"
@@ -175,115 +79,136 @@ export function SetupGuide({ onBack }: { onBack: () => void }) {
           </button>
           <h1 className="text-2xl font-bold tracking-tight text-gray-100">Setup Guide</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Get Rondo running with your OpenClaw instance in a few steps.
+            Connect your OpenClaw instance to Rondo in 5 steps.
           </p>
         </div>
 
-        {/* Step 1 */}
+        {/* Step 1 — Install */}
         <section className="space-y-3">
           <div className="flex items-center gap-3">
             <StepNumber n={1} />
-            <h2 className="text-base font-semibold text-gray-200">Install the Rondo Plugin</h2>
+            <div>
+              <h2 className="text-base font-semibold text-gray-200">Install the Plugin</h2>
+              <p className="text-[12px] text-gray-500 mt-0.5">Run these two commands on your device.</p>
+            </div>
           </div>
-          <div className="pl-10 space-y-3">
-            <p className="text-sm text-gray-400">Install the plugin package:</p>
-            <CodeBlock language="bash" code="npm install @openclaw/rondo" />
-            <p className="text-sm text-gray-400">
-              Then add <code className="text-accent/80 text-[13px] font-mono bg-surface-raised/50 px-1.5 py-0.5 rounded">rondo</code> to
-              your <code className="text-accent/80 text-[13px] font-mono bg-surface-raised/50 px-1.5 py-0.5 rounded">openclaw.json</code> extensions
-              array.
-            </p>
+          <div className="pl-11 space-y-3">
+            <CodeBlock language="bash" code={INSTALL_CMD} />
           </div>
         </section>
 
-        {/* Step 2 */}
+        <StepConnector />
+
+        {/* Step 2 — Sign In */}
         <section className="space-y-3">
           <div className="flex items-center gap-3">
             <StepNumber n={2} />
-            <h2 className="text-base font-semibold text-gray-200">Supabase Setup</h2>
+            <div>
+              <h2 className="text-base font-semibold text-gray-200">Sign In</h2>
+              <p className="text-[12px] text-gray-500 mt-0.5">
+                Open{" "}
+                <a href="https://rondo-ui.vercel.app" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                  rondo-ui.vercel.app
+                </a>{" "}
+                and sign in with Google.
+              </p>
+            </div>
           </div>
-          <div className="pl-10 space-y-3">
-            <ol className="text-sm text-gray-400 space-y-1.5 list-decimal list-inside">
-              <li>Create a new <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Supabase project</a></li>
-              <li>Open the SQL Editor and run the schema below</li>
-              <li>Go to Settings &rarr; API to get your <strong className="text-gray-300">Project URL</strong>, <strong className="text-gray-300">anon key</strong>, and <strong className="text-gray-300">service_role key</strong></li>
-            </ol>
-            <CodeBlock language="sql" code={SQL_SCHEMA} />
+          <div className="pl-11">
+            <div className="rounded-lg border border-border bg-surface-card/30 p-3 text-[12px] text-gray-500 flex items-center gap-2">
+              <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
+              If you're already signed in, you can skip this step.
+            </div>
           </div>
         </section>
 
-        {/* Step 3 */}
+        <StepConnector />
+
+        {/* Step 3 — Generate Link */}
         <section className="space-y-3">
           <div className="flex items-center gap-3">
             <StepNumber n={3} />
-            <h2 className="text-base font-semibold text-gray-200">Plugin Config</h2>
-          </div>
-          <div className="pl-10 space-y-3">
-            <p className="text-sm text-gray-400">
-              Add the Rondo config to your <code className="text-accent/80 text-[13px] font-mono bg-surface-raised/50 px-1.5 py-0.5 rounded">openclaw.json</code>:
-            </p>
-            <CodeBlock language="json" code={PLUGIN_CONFIG} />
-            <div className="text-[12px] text-gray-500 space-y-1">
-              <p><strong className="text-gray-400">supabaseUrl</strong> &mdash; your Supabase project URL</p>
-              <p><strong className="text-gray-400">supabaseKey</strong> &mdash; your Supabase <em>service_role</em> key (needed to write data and resolve auth users)</p>
-              <p><strong className="text-gray-400">syncIntervalMs</strong> &mdash; sync frequency in ms (default: 300000)</p>
-              <p><strong className="text-gray-400">supabaseAuthEmail</strong> &mdash; the email you use to sign in via Google/GitHub SSO &mdash; the plugin auto-resolves this to your Supabase Auth UUID</p>
+            <div>
+              <h2 className="text-base font-semibold text-gray-200">Generate a Link</h2>
+              <p className="text-[12px] text-gray-500 mt-0.5">
+                Go to the <strong className="text-gray-400">Jobs</strong> tab and click <strong className="text-gray-400">Link Device</strong> &rarr; <strong className="text-gray-400">Generate Link Token</strong>. Copy the link URL.
+              </p>
             </div>
           </div>
         </section>
 
-        {/* Step 4 */}
+        <StepConnector />
+
+        {/* Step 4 — Link Device */}
         <section className="space-y-3">
           <div className="flex items-center gap-3">
             <StepNumber n={4} />
-            <h2 className="text-base font-semibold text-gray-200">Deploy Rondo UI</h2>
+            <div>
+              <h2 className="text-base font-semibold text-gray-200">Link Your Device</h2>
+              <p className="text-[12px] text-gray-500 mt-0.5">
+                Send the link to your OpenClaw instance. Choose whichever method you prefer:
+              </p>
+            </div>
           </div>
-          <div className="pl-10 space-y-3">
-            <ol className="text-sm text-gray-400 space-y-1.5 list-decimal list-inside">
-              <li>Fork the <strong className="text-gray-300">rondo-ui</strong> repo</li>
-              <li>Import the repo on <a href="https://vercel.com/new" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Vercel</a></li>
-              <li>Set environment variables in Vercel project settings:</li>
-            </ol>
-            <CodeBlock language="bash" code={`VITE_SUPABASE_URL=https://your-project.supabase.co\nVITE_SUPABASE_ANON_KEY=your-anon-key`} />
-            <p className="text-sm text-gray-400">Deploy and your dashboard is live.</p>
+          <div className="pl-11 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-lg border border-border bg-surface-card/30 p-3 space-y-2">
+                <p className="text-[11px] uppercase tracking-wider text-gray-500 font-medium">Via Chat (Telegram / WhatsApp)</p>
+                <CodeBlock code={LINK_CHAT_CMD} />
+              </div>
+              <div className="rounded-lg border border-border bg-surface-card/30 p-3 space-y-2">
+                <p className="text-[11px] uppercase tracking-wider text-gray-500 font-medium">Via Terminal</p>
+                <CodeBlock code={LINK_CLI_CMD} />
+              </div>
+            </div>
+            <p className="text-[11px] text-gray-600">
+              Replace <code className="font-mono text-accent/60">&lt;URL&gt;</code> with the link you copied in step 3. The token expires in 5 minutes.
+            </p>
           </div>
         </section>
 
-        {/* Step 5 */}
+        <StepConnector />
+
+        {/* Step 5 — Done */}
         <section className="space-y-3">
           <div className="flex items-center gap-3">
             <StepNumber n={5} />
-            <h2 className="text-base font-semibold text-gray-200">Google SSO (Optional)</h2>
+            <div>
+              <h2 className="text-base font-semibold text-gray-200">Done!</h2>
+              <p className="text-[12px] text-gray-500 mt-0.5">
+                Your cron jobs will appear on the dashboard within a few minutes.
+              </p>
+            </div>
           </div>
-          <div className="pl-10 space-y-3">
-            <ol className="text-sm text-gray-400 space-y-1.5 list-decimal list-inside">
-              <li>In Supabase dashboard, go to <strong className="text-gray-300">Auth &rarr; Providers &rarr; Google</strong></li>
-              <li>Create OAuth credentials in <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Google Cloud Console</a></li>
-              <li>Add your Client ID and Secret to Supabase</li>
-              <li>Set the redirect URL from Supabase in your Google OAuth config</li>
-            </ol>
-          </div>
-        </section>
-
-        {/* Step 6 */}
-        <section className="space-y-3">
-          <div className="flex items-center gap-3">
-            <StepNumber n={6} />
-            <h2 className="text-base font-semibold text-gray-200">Verify</h2>
-          </div>
-          <div className="pl-10 space-y-3">
-            <ol className="text-sm text-gray-400 space-y-1.5 list-decimal list-inside">
-              <li>Restart the OpenClaw gateway</li>
-              <li>Check sync logs for successful data push</li>
-              <li>Open Rondo UI and confirm your cron jobs appear</li>
-            </ol>
-            <div className="rounded-lg border border-border bg-surface-card/30 p-3 text-[12px] text-gray-500">
-              <strong className="text-gray-400">Troubleshooting:</strong> If data doesn't appear, check that your Supabase URL and key are correct
-              in both <code className="font-mono text-accent/60">openclaw.json</code> (plugin) and Vercel env vars (UI).
-              The plugin syncs on the configured interval — trigger a manual sync from the dashboard header to test immediately.
+          <div className="pl-11">
+            <div className="rounded-lg border border-success/20 bg-success/5 p-3 text-[12px] text-gray-400 space-y-1.5">
+              <p className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-success shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>The plugin syncs every 5 minutes automatically.</span>
+              </p>
+              <p className="text-gray-500 pl-6">
+                Use the <strong className="text-gray-400">Sync</strong> button in the header to trigger an immediate sync.
+              </p>
             </div>
           </div>
         </section>
+
+        {/* Troubleshooting */}
+        <div className="mt-8 pt-6 border-t border-border">
+          <h3 className="text-sm font-medium text-gray-300 mb-3">Troubleshooting</h3>
+          <div className="text-[12px] text-gray-500 space-y-2">
+            <p>
+              <strong className="text-gray-400">Jobs not appearing?</strong> Check that the gateway restarted after plugin install. Run <code className="font-mono text-accent/60">/rondo status</code> to verify the plugin is active and linked.
+            </p>
+            <p>
+              <strong className="text-gray-400">Link token expired?</strong> Generate a new one from the Link Device card. Tokens expire after 5 minutes.
+            </p>
+          </div>
+        </div>
 
         <div className="h-8" />
       </div>
