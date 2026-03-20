@@ -35,6 +35,7 @@ export function useJobs(refreshIntervalMs = 30_000) {
       const { data, error: err } = await client
         .from("cron_jobs")
         .select("*")
+        .eq("enabled", true)
         .order("name");
 
       if (err) throw err;
