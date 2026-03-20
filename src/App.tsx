@@ -91,8 +91,9 @@ function SyncButton({ onSynced }: { onSynced?: () => void }) {
   );
 }
 
-function AccountMenu({ email, onSignOut, onSetup, onTheme }: { email: string; onSignOut: () => void; onSetup?: () => void; onTheme?: () => void }) {
+function AccountMenu({ email, avatarUrl, onSignOut, onSetup, onTheme }: { email: string; avatarUrl?: string; onSignOut: () => void; onSetup?: () => void; onTheme?: () => void }) {
   const [open, setOpen] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -108,10 +109,14 @@ function AccountMenu({ email, onSignOut, onSetup, onTheme }: { email: string; on
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center justify-center w-7 h-7 rounded-full bg-accent/10 text-accent hover:bg-accent/20 transition-colors text-[11px] font-bold uppercase"
+        className="flex items-center justify-center w-7 h-7 rounded-full bg-accent/10 text-accent hover:bg-accent/20 transition-colors text-[11px] font-bold uppercase overflow-hidden"
         title={email}
       >
-        {email[0]}
+        {avatarUrl && !imgError ? (
+          <img src={avatarUrl} alt="" className="w-full h-full object-cover" onError={() => setImgError(true)} referrerPolicy="no-referrer" />
+        ) : (
+          email[0]
+        )}
       </button>
       {open && (
         <div className="absolute right-0 top-full mt-1.5 w-56 rounded-lg border border-border bg-surface-card shadow-xl z-50 py-1.5 animate-fade-in">
@@ -243,7 +248,7 @@ export function App() {
           <RondoLogo />
           {/* Mobile: account menu */}
           <div className="md:hidden">
-            <AccountMenu email={user.email ?? ""} onSignOut={signOut} onSetup={() => navigateTo("setup")} onTheme={() => setSettingsOpen(true)} />
+            <AccountMenu email={user.email ?? ""} avatarUrl={user.user_metadata?.avatar_url} onSignOut={signOut} onSetup={() => navigateTo("setup")} onTheme={() => setSettingsOpen(true)} />
           </div>
           <div className="hidden md:flex items-center gap-3">
             <div className="seg-control">
@@ -262,7 +267,7 @@ export function App() {
             </div>
             <SyncButton onSynced={refetchSessions} />
             <div className="ml-2 pl-2 border-l border-border">
-              <AccountMenu email={user.email ?? ""} onSignOut={signOut} onSetup={() => navigateTo("setup")} onTheme={() => setSettingsOpen(true)} />
+              <AccountMenu email={user.email ?? ""} avatarUrl={user.user_metadata?.avatar_url} onSignOut={signOut} onSetup={() => navigateTo("setup")} onTheme={() => setSettingsOpen(true)} />
             </div>
             {loading && (
               <span className="flex items-center gap-1.5 text-xs text-gray-600">
