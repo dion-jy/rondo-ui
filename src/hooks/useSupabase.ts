@@ -237,7 +237,8 @@ export function useDeviceLinked(userId: string | undefined, pollMs = 5000) {
       if (err) throw err;
       setLinked((data ?? []).length > 0);
     } catch {
-      // keep current state on error
+      // Table missing or RLS error → treat as linked (show dashboard)
+      setLinked(true);
     }
   }, [userId]);
 
