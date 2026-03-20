@@ -181,7 +181,10 @@ function getSessionTimeRange(event: AcpEvent, dayStartMs: number, dayEndMs: numb
   const startMs = event.startedAt;
   if (startMs === 0) return null;
 
-  const endMs = event.status === "running" ? nowMs : event.endedAt;
+  const rawEndMs = event.status === "running" ? nowMs : event.endedAt;
+  // Keep completed ACP sessions visible in calendar even when upstream duration is very short.
+  const visualMinMs = 60_000;
+  const endMs = event.status === "running" ? rawEndMs : Math.max(rawEndMs, startMs + visualMinMs);
 
   const clampedStart = Math.max(startMs, dayStartMs);
   const clampedEnd = Math.min(endMs, dayEndMs);
