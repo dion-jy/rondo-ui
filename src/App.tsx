@@ -184,9 +184,9 @@ export function App() {
     setPage(target);
   }, []);
   const { linked } = useDeviceLinked(user?.id);
-  const { jobs, loading: jobsLoading, error: jobsError } = useJobs();
-  const { runs, loading: runsLoading, error: runsError } = useRuns(undefined, 200);
-  const { sessions, refetch: refetchSessions } = useSessions();
+  const { jobs, loading: jobsLoading, error: jobsError } = useJobs(user?.id);
+  const { runs, loading: runsLoading, error: runsError } = useRuns(user?.id, undefined, 200);
+  const { sessions, refetch: refetchSessions } = useSessions(user?.id);
   const stats = useStats(jobs, runs);
 
   // Auth loading state
@@ -315,7 +315,7 @@ export function App() {
                 <JobList jobs={jobs} selectedJobId={selectedJobId} onSelect={setSelectedJobId} />
               </div>
               <div>
-                <ACPSessions />
+                <ACPSessions userId={user?.id} />
               </div>
             </div>
 

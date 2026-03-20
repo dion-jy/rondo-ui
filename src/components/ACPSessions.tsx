@@ -25,9 +25,9 @@ function timeAgo(ts?: number): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export function ACPSessions() {
+export function ACPSessions({ userId }: { userId?: string }) {
   // Build marker: supabase-sessions-v2
-  const { sessions, loading, error } = useSessions();
+  const { sessions, loading, error } = useSessions(userId);
 
   // Only show active sessions (running, active, error, idle — NOT done)
   const activeSessions = useMemo(

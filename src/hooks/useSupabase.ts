@@ -17,7 +17,7 @@ function getClient(): SupabaseClient | null {
 
 // ── useJobs ──
 
-export function useJobs(refreshIntervalMs = 30_000) {
+export function useJobs(userId: string | undefined, refreshIntervalMs = 30_000) {
   const [jobs, setJobs] = useState<CronJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,11 +30,17 @@ export function useJobs(refreshIntervalMs = 30_000) {
       setLoading(false);
       return;
     }
+    if (!userId) {
+      setJobs([]);
+      setLoading(false);
+      return;
+    }
 
     try {
       const { data, error: err } = await client
         .from("cron_jobs")
         .select("*")
+        .eq("user_id", userId)
         .eq("enabled", true)
         .order("name");
 
@@ -46,7 +52,7 @@ export function useJobs(refreshIntervalMs = 30_000) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     fetchJobs();
@@ -61,7 +67,7 @@ export function useJobs(refreshIntervalMs = 30_000) {
 
 // ── useRuns ──
 
-export function useRuns(jobId?: string, limit = 50, refreshIntervalMs = 30_000) {
+export function useRuns(userId: string | undefined, jobId?: string, limit = 50, refreshIntervalMs = 30_000) {
   const [runs, setRuns] = useState<CronRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,11 +80,17 @@ export function useRuns(jobId?: string, limit = 50, refreshIntervalMs = 30_000) 
       setLoading(false);
       return;
     }
+    if (!userId) {
+      setRuns([]);
+      setLoading(false);
+      return;
+    }
 
     try {
       let query = client
         .from("cron_runs")
         .select("*")
+        .eq("user_id", userId)
         .order("timestamp", { ascending: false })
         .limit(limit);
 
@@ -95,7 +107,7 @@ export function useRuns(jobId?: string, limit = 50, refreshIntervalMs = 30_000) 
     } finally {
       setLoading(false);
     }
-  }, [jobId, limit]);
+  }, [userId, jobId, limit]);
 
   useEffect(() => {
     fetchRuns();
@@ -136,7 +148,7 @@ export function useStats(jobs: CronJob[], runs: CronRun[]): CronStats {
 const FAST_POLL_MS = 10_000;
 const SLOW_POLL_MS = 30_000;
 
-export function useSessions(refreshIntervalMs = SLOW_POLL_MS) {
+export function useSessions(userId: string | undefined, refreshIntervalMs = SLOW_POLL_MS) {
   const [sessions, setSessions] = useState<ACPSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,11 +162,17 @@ export function useSessions(refreshIntervalMs = SLOW_POLL_MS) {
       setLoading(false);
       return;
     }
+    if (!userId) {
+      setSessions([]);
+      setLoading(false);
+      return;
+    }
 
     try {
       const { data, error: err } = await client
         .from("acp_sessions")
         .select("*")
+        .eq("user_id", userId)
         .order("updated_at", { ascending: false })
         .limit(50);
 
@@ -194,7 +212,7 @@ export function useSessions(refreshIntervalMs = SLOW_POLL_MS) {
     } finally {
       setLoading(false);
     }
-  }, [refreshIntervalMs]);
+  }, [userId, refreshIntervalMs]);
 
   useEffect(() => {
     fetchSessions();
