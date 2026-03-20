@@ -345,8 +345,9 @@ export function App() {
       <header className="border-b border-border bg-surface z-30 shrink-0">
         <div className="flex items-center justify-between px-4 md:px-6 py-2">
           <RondoLogo />
-          {/* Mobile: account menu */}
-          <div className="md:hidden">
+          {/* Mobile: sync + account menu */}
+          <div className="md:hidden flex items-center gap-2">
+            <SyncButton onSynced={refetchSessions} />
             <AccountMenu email={user.email ?? ""} avatarUrl={user.user_metadata?.avatar_url} onSignOut={signOut} onSetup={() => navigateTo("setup")} onTheme={() => setSettingsOpen(true)} />
           </div>
           <div className="hidden md:flex items-center gap-3">
