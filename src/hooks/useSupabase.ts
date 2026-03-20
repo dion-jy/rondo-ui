@@ -238,6 +238,7 @@ function formatDuration(ms: number): string {
 
 export function useDeviceLinked(userId: string | undefined, pollMs = 5000) {
   const [linked, setLinked] = useState<boolean | null>(null); // null = loading
+  const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const check = useCallback(async () => {
@@ -254,15 +255,16 @@ export function useDeviceLinked(userId: string | undefined, pollMs = 5000) {
 
       if (err) throw err;
       setLinked((data ?? []).length > 0);
-    } catch {
-      // Table missing or RLS error → treat as linked (show dashboard)
-      setLinked(true);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     }
   }, [userId]);
 
   useEffect(() => {
     if (!userId) {
       setLinked(null);
+      setError(null);
       return;
     }
     check();
@@ -272,7 +274,90 @@ export function useDeviceLinked(userId: string | undefined, pollMs = 5000) {
     };
   }, [check, pollMs, userId]);
 
-  return { linked, recheckNow: check };
+  return { linked, error, recheckNow: check };
+}
+
+// ── usePluginVersion ──
+
+export interface PluginVersionInfo {
+  installed: string | null;    // from Supabase cron_jobs.plugin_version
+  latest: string | null;       // from npm registry
+  updateAvailable: boolean;
+  loading: boolean;
+}
+
+export function usePluginVersion(userId: string | undefined): PluginVersionInfo {
+  const [installed, setInstalled] = useState<string | null>(null);
+  const [latest, setLatest] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetch_versions() {
+      const client = getClient();
+      if (!client || !userId) {
+        setLoading(false);
+        return;
+      }
+
+      // Fetch installed version from most recently synced cron_job
+      try {
+        const { data } = await client
+          .from("cron_jobs")
+          .select("plugin_version")
+          .eq("user_id", userId)
+          .not("plugin_version", "is", null)
+          .order("synced_at", { ascending: false })
+          .limit(1);
+
+        if (!cancelled && data && data.length > 0) {
+          setInstalled(data[0].plugin_version);
+        }
+      } catch {
+        // column may not exist yet — graceful
+      }
+
+      // Fetch latest version from npm registry
+      try {
+        const resp = await globalThis.fetch(
+          "https://registry.npmjs.org/@dion-jy/rondo/latest"
+        );
+        if (resp.ok) {
+          const pkg = await resp.json();
+          if (!cancelled && pkg.version) {
+            setLatest(pkg.version);
+          }
+        }
+      } catch {
+        // network error — skip
+      }
+
+      if (!cancelled) setLoading(false);
+    }
+
+    fetch_versions();
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  const updateAvailable =
+    !loading &&
+    !!installed &&
+    !!latest &&
+    installed !== latest &&
+    compareSemver(installed, latest) < 0;
+
+  return { installed, latest, updateAvailable, loading };
+}
+
+function compareSemver(a: string, b: string): number {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) {
+    const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
 }
 
 export function isConfigured(): boolean {

@@ -28,6 +28,7 @@ export interface CronJob {
   created_at: string | null;
   updated_at: string | null;
   synced_at: string;
+  plugin_version?: string | null;
 }
 
 export interface CronRun {

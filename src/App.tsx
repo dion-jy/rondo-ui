@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useJobs, useRuns, useStats, useSessions, useDeviceLinked, isConfigured } from "./hooks/useSupabase";
+import { useJobs, useRuns, useStats, useSessions, useDeviceLinked, usePluginVersion, isConfigured } from "./hooks/useSupabase";
 import { useAuth } from "./hooks/useAuth";
 import { Login } from "./components/Login";
 import { Stats } from "./components/Stats";
@@ -161,6 +161,49 @@ function AccountMenu({ email, avatarUrl, onSignOut, onSetup, onTheme }: { email:
   );
 }
 
+function PluginVersionBadge({ info }: { info: import("./hooks/useSupabase").PluginVersionInfo }) {
+  const [copied, setCopied] = useState(false);
+
+  if (info.loading || (!info.installed && !info.latest)) return null;
+
+  const cmd = "openclaw plugins update @dion-jy/rondo && openclaw gateway restart";
+
+  if (info.updateAvailable) {
+    return (
+      <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] rounded-md bg-warning/10 text-warning border border-warning/20">
+        <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+        </svg>
+        <span className="hidden lg:inline">
+          v{info.installed} → v{info.latest}
+        </span>
+        <span className="lg:hidden">Update</span>
+        <button
+          onClick={() => {
+            navigator.clipboard.writeText(cmd);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }}
+          className="ml-0.5 px-1 py-0.5 rounded text-[10px] bg-warning/10 hover:bg-warning/20 transition-colors"
+          title={cmd}
+        >
+          {copied ? "Copied!" : "Copy cmd"}
+        </button>
+      </div>
+    );
+  }
+
+  if (info.installed) {
+    return (
+      <span className="text-[10px] text-gray-600 px-1.5">
+        v{info.installed}
+      </span>
+    );
+  }
+
+  return null;
+}
+
 export function App() {
   const { user, loading: authLoading, signOut } = useAuth();
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -183,10 +226,11 @@ export function App() {
     window.location.hash = target === "setup" ? "#/setup" : "";
     setPage(target);
   }, []);
-  const { linked } = useDeviceLinked(user?.id);
+  const { linked, error: linkError, recheckNow } = useDeviceLinked(user?.id);
   const { jobs, loading: jobsLoading, error: jobsError } = useJobs(user?.id);
   const { runs, loading: runsLoading, error: runsError } = useRuns(user?.id, undefined, 200);
   const { sessions, refetch: refetchSessions } = useSessions(user?.id);
+  const pluginVer = usePluginVersion(user?.id);
   const stats = useStats(jobs, runs);
 
   // Auth loading state
@@ -217,6 +261,48 @@ export function App() {
             <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-2">Required environment variables</p>
             <code className="block text-xs text-accent/80 bg-surface-raised/50 rounded px-2 py-1.5 font-mono">VITE_SUPABASE_URL</code>
             <code className="block text-xs text-accent/80 bg-surface-raised/50 rounded px-2 py-1.5 font-mono">VITE_SUPABASE_ANON_KEY</code>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Device link check error → dedicated error screen (never fall through to dashboard)
+  if (linkError && linked === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="max-w-sm w-full text-center animate-fade-in">
+          <div className="flex justify-center mb-6">
+            <RondoLogo />
+          </div>
+          <div className="rounded-lg border border-error/20 bg-error/5 p-5 space-y-4">
+            <svg className="w-8 h-8 mx-auto text-error/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+            <h2 className="text-sm font-semibold text-gray-200">Unable to verify sync status</h2>
+            <p className="text-[12px] text-gray-500 leading-relaxed">
+              Could not check whether your device is linked. This may be a temporary network or database issue.
+            </p>
+            <p className="text-[11px] text-gray-600 font-mono bg-surface-raised/30 rounded px-2 py-1.5 break-all">
+              {linkError}
+            </p>
+            <div className="flex flex-col gap-2 pt-1">
+              <button
+                onClick={recheckNow}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-[12px] font-medium text-accent bg-accent/10 hover:bg-accent/20 rounded-md transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
+                </svg>
+                Retry
+              </button>
+              <button
+                onClick={() => navigateTo("setup")}
+                className="w-full px-3 py-2 text-[12px] text-gray-500 hover:text-gray-300 hover:bg-white/5 rounded-md transition-colors"
+              >
+                Open Sync Setup
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -266,6 +352,7 @@ export function App() {
               </button>
             </div>
             <SyncButton onSynced={refetchSessions} />
+            <PluginVersionBadge info={pluginVer} />
             <div className="ml-2 pl-2 border-l border-border">
               <AccountMenu email={user.email ?? ""} avatarUrl={user.user_metadata?.avatar_url} onSignOut={signOut} onSetup={() => navigateTo("setup")} onTheme={() => setSettingsOpen(true)} />
             </div>
@@ -284,6 +371,16 @@ export function App() {
           </div>
         </div>
       </header>
+
+      {/* Mobile update banner */}
+      {pluginVer.updateAvailable && (
+        <div className="md:hidden px-4 py-2 bg-warning/5 border-b border-warning/20 text-[11px] text-warning flex items-center gap-2">
+          <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          </svg>
+          <span>Plugin update: v{pluginVer.installed} → v{pluginVer.latest}</span>
+        </div>
+      )}
 
       {/* Main */}
       <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
