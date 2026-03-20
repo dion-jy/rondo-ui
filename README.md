@@ -1,6 +1,10 @@
-# 🎵 Rondo UI
+# Rondo UI
 
-Cron monitoring dashboard for [OpenClaw](https://github.com/openclaw/openclaw). Deployed on Vercel, reads data from Supabase.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+React dashboard for monitoring OpenClaw cron jobs and agent sessions.
+
+**Live:** [rondo-ui.vercel.app](https://rondo-ui.vercel.app)
 
 ## Architecture
 
@@ -9,89 +13,70 @@ OpenClaw Gateway          Supabase          Rondo UI (Vercel)
 ┌──────────────┐     ┌───────────┐     ┌─────────────────┐
 │ rondo plugin │────▶│  Tables   │◀────│  React + Vite   │
 │ (push data)  │     │ cron_jobs │     │  Tailwind CSS   │
-└──────────────┘     │ cron_runs │     │  @supabase/js   │
-                     └───────────┘     └─────────────────┘
+└──────────────┘     │ cron_runs │     │  Supabase Auth  │
+                     │acp_sessions│    └─────────────────┘
+                     └───────────┘
 ```
 
-- **Plugin** (separate repo: [dion-jy/rondo](https://github.com/dion-jy/rondo)) pushes cron data to Supabase
-- **This frontend** reads from Supabase and renders the dashboard
+- The [Rondo plugin](https://github.com/dion-jy/rondo) (`@dion-jy/rondo`) pushes cron data to Supabase
+- This frontend reads from Supabase and renders the dashboard
 - No direct connection between frontend and gateway
 
 ## Features
 
-- 📊 Stats overview (active jobs, success rate, token usage)
-- 📅 24h timeline with swim lanes per job
-- 📋 Job list with status, schedule, and error details
-- 📜 Execution log with filtering and expandable summaries
-- 🌙 Dark theme, responsive layout
+- **Google SSO** — login via Supabase Auth (Google OAuth)
+- **Stats overview** — active jobs, success rate, running count, token usage
+- **24h timeline** — swim lane calendar with zoom, per-job rows, projected runs
+- **Job list** — status, schedule, last run, error details
+- **Execution log** — merged cron runs + ACP sessions, filterable by status
+- **ACP sessions** — live agent session tracking with adaptive polling
+- **Device linking** — generate one-time tokens to link OpenClaw instances
+- **5 dark themes** — Midnight, Nord, Solarized, Dracula, Rosé Pine
+- **Responsive** — mobile-friendly with bottom navigation
 
-## Setup
-
-### 1. Prerequisites
-
-- Supabase project with tables created (see [rondo/sql/schema.sql](https://github.com/dion-jy/rondo/blob/main/sql/schema.sql))
-- Rondo plugin installed and syncing data
-
-### 2. Local Development
+## Development
 
 ```bash
 git clone https://github.com/dion-jy/rondo-ui.git
 cd rondo-ui
 npm install
-
-# Create .env.local
 cp .env.example .env.local
-# Edit with your Supabase credentials
-
+# Edit .env.local with your Supabase credentials
 npm run dev
 ```
 
-### 3. Deploy to Vercel
+### Environment Variables
 
-```bash
-# Via Vercel CLI
-npm i -g vercel
-vercel
-
-# Or connect GitHub repo in Vercel dashboard
-```
-
-**Environment variables** (set in Vercel dashboard):
-- `VITE_SUPABASE_URL` — your Supabase project URL
-- `VITE_SUPABASE_ANON_KEY` — your Supabase anon key
-
-### 4. Custom Domain (optional)
-
-Add your domain in Vercel dashboard → Settings → Domains.
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_SUPABASE_URL` | Yes | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | Yes | Supabase anon (public) key |
 
 ## Deployment
 
-This project uses GitHub Actions to deploy to Vercel via the Vercel CLI (no Vercel GitHub integration required).
+Deployed to Vercel via GitHub Actions:
 
-- **Pull requests** → automatic preview deployment; the preview URL is posted as a PR comment
-- **Push to `main`** → automatic production deployment
+- **Pull requests** → preview deployment (URL posted as PR comment)
+- **Push to `main`** → production deployment
 
 ### Required GitHub Secrets
 
-Set these in your repo under **Settings → Secrets and variables → Actions**:
-
-| Secret | How to get it |
-|--------|---------------|
-| `VERCEL_TOKEN` | Create a token at [vercel.com/account/tokens](https://vercel.com/account/tokens) |
-| `VERCEL_ORG_ID` | Run `npx vercel link` locally, then check `.vercel/project.json` → `orgId` |
-| `VERCEL_PROJECT_ID` | Same file (`.vercel/project.json`) → `projectId` |
+| Secret | Source |
+|--------|--------|
+| `VERCEL_TOKEN` | [vercel.com/account/tokens](https://vercel.com/account/tokens) |
+| `VERCEL_ORG_ID` | `.vercel/project.json` → `orgId` (after `npx vercel link`) |
+| `VERCEL_PROJECT_ID` | `.vercel/project.json` → `projectId` |
 
 ## Tech Stack
 
-- React 19 + TypeScript
-- Vite 6
+- React 19, TypeScript, Vite 6
 - Tailwind CSS 3
-- Supabase JS client
-- Vercel (deployment)
+- Supabase JS client + Supabase Auth
+- Vercel
 
 ## Related
 
-- [Rondo Plugin](https://github.com/dion-jy/rondo) — OpenClaw plugin that syncs data to Supabase
+- [Rondo Plugin](https://github.com/dion-jy/rondo) (`@dion-jy/rondo`) — OpenClaw plugin that syncs data
 - [OpenClaw](https://github.com/openclaw/openclaw) — AI agent orchestration platform
 
 ## License

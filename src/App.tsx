@@ -9,6 +9,7 @@ import { JobList } from "./components/JobList";
 import { ACPSessions } from "./components/ACPSessions";
 import { Settings } from "./components/Settings";
 import { SetupGuide } from "./components/SetupGuide";
+import { LinkDevice } from "./components/LinkDevice";
 
 function RondoLogo() {
   return (
@@ -290,8 +291,9 @@ export function App() {
                 <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Cron Jobs</h2>
                 <JobList jobs={jobs} selectedJobId={selectedJobId} onSelect={setSelectedJobId} />
               </div>
-              <div>
+              <div className="space-y-4">
                 <ACPSessions />
+                <LinkDevice />
               </div>
             </div>
 
