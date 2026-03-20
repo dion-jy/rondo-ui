@@ -174,7 +174,7 @@ export function SetupGuide({ onDone }: { onDone: () => void }) {
               <rect x="12.5" y="9.5" width="15.2" height="2.8" rx="1.2" fill="url(#setup-logo-grad)" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-100">Set Up Rondo</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-100">Sync Setup</h1>
           <p className="text-sm text-gray-500 mt-1">Connect your device to start monitoring cron jobs.</p>
         </div>
 

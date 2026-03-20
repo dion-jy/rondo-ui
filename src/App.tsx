@@ -132,7 +132,7 @@ function AccountMenu({ email, avatarUrl, onSignOut, onSetup, onTheme }: { email:
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12a7.5 7.5 0 1115 0v7.5a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 015.5 19.5V12z" />
               </svg>
-              Setup
+              Sync Setup
             </button>
           )}
           {onTheme && (
