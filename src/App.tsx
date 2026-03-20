@@ -1,6 +1,7 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useJobs, useRuns, useStats, useSessions, useDeviceLinked, usePluginVersion, isConfigured } from "./hooks/useSupabase";
 import { useAuth } from "./hooks/useAuth";
+import { normalizeEvents } from "./lib/events";
 import { Login } from "./components/Login";
 import { Stats } from "./components/Stats";
 import { Timeline } from "./components/Timeline";
@@ -239,6 +240,12 @@ export function App() {
   const pluginVer = usePluginVersion(user?.id);
   const stats = useStats(jobs, runs);
 
+  // Unified event pipeline — single source of truth for all surfaces
+  const { liveEvents, historyEvents, calendarEvents } = useMemo(
+    () => normalizeEvents(jobs, runs, sessions),
+    [jobs, runs, sessions]
+  );
+
   // Auth loading state
   if (authLoading) {
     return (
@@ -405,7 +412,7 @@ export function App() {
             </div>
           </div>
         ) : activeTab === "calendar" ? (
-          <Timeline runs={runs} jobs={jobs} sessions={sessions} />
+          <Timeline calendarEvents={calendarEvents} jobs={jobs} />
         ) : (
           <div className="px-4 md:px-6 py-5 space-y-5 max-w-[1400px] mx-auto overflow-auto flex-1">
             {/* Stats summary */}
@@ -418,12 +425,12 @@ export function App() {
                 <JobList jobs={jobs} selectedJobId={selectedJobId} onSelect={setSelectedJobId} />
               </div>
               <div>
-                <ACPSessions userId={user?.id} />
+                <ACPSessions liveEvents={liveEvents} />
               </div>
             </div>
 
             {/* Execution log — cron runs + completed ACP sessions merged */}
-            <ExecutionLog runs={runs} jobs={jobs} sessions={sessions} selectedJobId={selectedJobId} />
+            <ExecutionLog historyEvents={historyEvents} selectedJobId={selectedJobId} />
           </div>
         )}
       </main>

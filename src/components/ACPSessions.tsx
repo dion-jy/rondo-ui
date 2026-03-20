@@ -1,20 +1,7 @@
-import { useMemo } from "react";
-import { useSessions } from "../hooks/useSupabase";
+import type { UnifiedEvent, AcpEvent } from "../lib/events";
+import { statusDotClass, statusLabel } from "../lib/events";
 
-
-function statusDot(status?: string) {
-  if (status === "active" || status === "running") return "bg-success animate-pulse";
-  if (status === "error") return "bg-error";
-  return "bg-gray-600";
-}
-
-function statusLabel(status?: string) {
-  if (status === "active" || status === "running") return "Running";
-  if (status === "error") return "Error";
-  return "Idle";
-}
-
-function timeAgo(ts?: number): string {
+function timeAgo(ts: number): string {
   if (!ts) return "";
   const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60_000);
@@ -25,16 +12,14 @@ function timeAgo(ts?: number): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export function ACPSessions({ userId }: { userId?: string }) {
-  // Build marker: supabase-sessions-v2
-  const { sessions, loading, error } = useSessions(userId);
+interface ACPSessionsProps {
+  liveEvents: UnifiedEvent[];
+}
 
-  // Only show active sessions (running, active, error, idle — NOT done)
-  const activeSessions = useMemo(
-    () => [...sessions]
-      .filter((s) => s.status !== "done")
-      .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)),
-    [sessions]
+export function ACPSessions({ liveEvents }: ACPSessionsProps) {
+  // Only ACP running events for this panel
+  const activeSessions = liveEvents.filter(
+    (e): e is AcpEvent => e.source === "acp"
   );
 
   return (
@@ -46,7 +31,7 @@ export function ACPSessions({ userId }: { userId?: string }) {
         )}
       </div>
 
-      {(error || (!loading && activeSessions.length === 0)) ? (
+      {activeSessions.length === 0 ? (
         <div className="rounded-lg border border-border bg-surface-card/30 px-4 py-6">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-surface-raised flex items-center justify-center flex-shrink-0">
@@ -55,32 +40,35 @@ export function ACPSessions({ userId }: { userId?: string }) {
               </svg>
             </div>
             <div>
-              <p className="text-xs text-gray-400">{error ? "Connection error" : "No active sessions"}</p>
-              <p className="text-[10px] text-gray-600 mt-0.5">{error ?? "Active agent sessions will appear here"}</p>
+              <p className="text-xs text-gray-400">No active sessions</p>
+              <p className="text-[10px] text-gray-600 mt-0.5">Active agent sessions will appear here</p>
             </div>
           </div>
         </div>
       ) : (
         <div className="rounded-lg border border-border bg-surface-card/30 divide-y divide-border overflow-hidden">
-          {activeSessions.slice(0, 8).map((s) => (
-            <div key={s.key} className="px-3 py-2.5 hover:bg-surface-hover transition-colors cursor-default">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusDot(s.status)}`} />
-                  <span className="truncate text-sm text-gray-200 font-medium">{s.label ?? s.key}</span>
+          {activeSessions.slice(0, 8).map((e) => {
+            const session = e.meta.session;
+            return (
+              <div key={e.id} className="px-3 py-2.5 hover:bg-surface-hover transition-colors cursor-default">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusDotClass(e.status)}`} />
+                    <span className="truncate text-sm text-gray-200 font-medium">{e.title}</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-[10px] text-gray-600">{statusLabel(e.status)}</span>
+                    {session.agent && (
+                      <span className="text-[9px] text-gray-700 bg-surface-raised rounded px-1.5 py-0.5">{session.agent}</span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-[10px] text-gray-600">{statusLabel(s.status)}</span>
-                  {s.agent && (
-                    <span className="text-[9px] text-gray-700 bg-surface-raised rounded px-1.5 py-0.5">{s.agent}</span>
-                  )}
-                </div>
+                {e.updatedAt > 0 && (
+                  <p className="mt-1 pl-3.5 text-[10px] text-gray-600 tabular-nums">{timeAgo(e.updatedAt)}</p>
+                )}
               </div>
-              {s.updatedAt && (
-                <p className="mt-1 pl-3.5 text-[10px] text-gray-600 tabular-nums">{timeAgo(s.updatedAt)}</p>
-              )}
-            </div>
-          ))}
+            );
+          })}
           {activeSessions.length > 8 && (
             <div className="px-3 py-1.5 text-center">
               <p className="text-[10px] text-gray-600">+{activeSessions.length - 8} more</p>

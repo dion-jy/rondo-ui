@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CronRun, CronJob, ACPSession } from "../types";
+import type { CronRun, CronJob } from "../types";
+import type { UnifiedEvent, CronEvent, AcpEvent, EventStatus } from "../lib/events";
+import { cronEvClass, sessionBarClass, statusLabel } from "../lib/events";
 import { RunDetailModal } from "./RunDetailModal";
 
 interface TimelineProps {
-  runs: CronRun[];
+  calendarEvents: UnifiedEvent[];
   jobs: CronJob[];
-  sessions: ACPSession[];
 }
 
 type EventBox = {
@@ -53,22 +54,6 @@ function getInitialLayers(): { cron: boolean; sessions: boolean } {
   return defaults;
 }
 
-function evClass(status: string) {
-  if (status === "ok") return "ev-ok";
-  if (status === "error") return "ev-error";
-  if (status === "running") return "ev-running";
-  if (status === "scheduled") return "ev-scheduled";
-  return "ev-default";
-}
-
-function sessionStatusColor(status?: string) {
-  if (status === "scheduled") return "session-bar-scheduled";
-  if (status === "running" || status === "active") return "session-bar-running";
-  if (status === "error") return "session-bar-error";
-  if (status === "done") return "session-bar-done";
-  return "session-bar-idle";
-}
-
 function formatDuration(ms: number | null): string {
   if (ms == null) return "";
   if (ms < 1000) return `${ms}ms`;
@@ -82,8 +67,8 @@ function formatTimeShort(ms: number): string {
 }
 
 /**
- * Generate projected future cron runs for ALL enabled jobs (regardless of session_target).
- * Renders as cron-style bars with dashed borders to distinguish from actual past runs.
+ * Generate projected future cron runs for ALL enabled jobs.
+ * Renders as cron-style bars with dashed borders.
  */
 function generateScheduledProjections(jobs: CronJob[], dayStartMs: number, dayEndMs: number): CronRun[] {
   const now = Date.now();
@@ -94,7 +79,6 @@ function generateScheduledProjections(jobs: CronJob[], dayStartMs: number, dayEn
   for (const job of jobs) {
     if (!job.enabled) continue;
 
-    // Handle once/at scheduled jobs (single future time point)
     if ((job.schedule_kind === "once" || job.schedule_kind === "at") && job.schedule_at) {
       const atMs = new Date(job.schedule_at).getTime();
       if (atMs >= Math.max(dayStartMs, now) && atMs < dayEndMs) {
@@ -183,33 +167,28 @@ function generateScheduledProjections(jobs: CronJob[], dayStartMs: number, dayEn
 }
 
 type SessionBoxExt = {
-  session: ACPSession;
+  event: AcpEvent;
   startMs: number;
   endMs: number;
   clampedTop: boolean;
   clampedBottom: boolean;
-  isLong: boolean; // >4h
+  isLong: boolean;
   col: number;
   colCount: number;
 };
 
-function getSessionTimeRange(session: ACPSession, dayStartMs: number, dayEndMs: number, nowMs?: number): SessionBoxExt | null {
-  const startMs = session.startedAt ?? session.updatedAt ?? 0;
+function getSessionTimeRange(event: AcpEvent, dayStartMs: number, dayEndMs: number, nowMs: number): SessionBoxExt | null {
+  const startMs = event.startedAt;
   if (startMs === 0) return null;
 
-  let endMs: number;
-  if (session.status === "running" || session.status === "active") {
-    endMs = nowMs ?? Date.now();
-  } else {
-    endMs = session.updatedAt ?? startMs;
-  }
+  const endMs = event.status === "running" ? nowMs : event.endedAt;
 
   const clampedStart = Math.max(startMs, dayStartMs);
   const clampedEnd = Math.min(endMs, dayEndMs);
   if (clampedStart >= clampedEnd) return null;
 
   return {
-    session,
+    event,
     startMs: clampedStart,
     endMs: clampedEnd,
     clampedTop: startMs < dayStartMs,
@@ -222,7 +201,6 @@ function getSessionTimeRange(session: ACPSession, dayStartMs: number, dayEndMs: 
 
 /**
  * Unified overlap layout for mixed cron + session items.
- * Returns col/colCount assignments keyed by item key.
  */
 function layoutUnified(slots: { key: string; startMs: number; endMs: number }[]): Map<string, { col: number; colCount: number }> {
   if (slots.length === 0) return new Map();
@@ -279,29 +257,24 @@ function isToday(d: Date): boolean {
 
 // ── Session Detail Overlay ──
 
-function SessionDetailOverlay({ session, onClose }: { session: ACPSession; onClose: () => void }) {
+function SessionDetailOverlay({ event, onClose }: { event: AcpEvent; onClose: () => void }) {
+  const session = event.meta.session;
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  const statusBadge = (s?: string) => {
-    if (s === "running" || s === "active") return "badge-running";
+  const statusBadge = (s: EventStatus) => {
+    if (s === "running") return "badge-running";
     if (s === "error") return "badge-error";
     if (s === "done") return "badge-ok";
     return "badge-disabled";
   };
 
-  const statusLabel = (s?: string) => {
-    if (s === "running" || s === "active") return "Running";
-    if (s === "error") return "Error";
-    if (s === "done") return "Done";
-    return "Idle";
-  };
-
-  const barColor = (s?: string) => {
-    if (s === "running" || s === "active") return "bg-accent";
+  const barColor = (s: EventStatus) => {
+    if (s === "running") return "bg-accent";
     if (s === "error") return "bg-error";
     if (s === "done") return "bg-accent";
     return "bg-gray-600";
@@ -310,8 +283,7 @@ function SessionDetailOverlay({ session, onClose }: { session: ACPSession; onClo
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
       <div className="w-full max-w-md mx-4 rounded-xl border border-border bg-surface-card shadow-2xl animate-slide-up overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        {/* Status accent bar */}
-        <div className={`h-0.5 ${barColor(session.status)}`} />
+        <div className={`h-0.5 ${barColor(event.status)}`} />
 
         <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
           <div className="flex items-center gap-3 min-w-0">
@@ -321,7 +293,7 @@ function SessionDetailOverlay({ session, onClose }: { session: ACPSession; onClo
               </svg>
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-gray-100 truncate">{session.label ?? session.key}</h3>
+              <h3 className="text-sm font-semibold text-gray-100 truncate">{event.title}</h3>
               <span className="text-[10px] text-gray-600 uppercase tracking-wide">ACP Session</span>
             </div>
           </div>
@@ -334,7 +306,7 @@ function SessionDetailOverlay({ session, onClose }: { session: ACPSession; onClo
 
         <div className="px-5 py-4 space-y-3">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`badge ${statusBadge(session.status)}`}>{statusLabel(session.status)}</span>
+            <span className={`badge ${statusBadge(event.status)}`}>{statusLabel(event.status)}</span>
             {session.agent && <span className="text-[10px] text-gray-500 bg-surface-raised rounded px-1.5 py-0.5">{session.agent}</span>}
             {session.model && <span className="text-[10px] text-gray-500 bg-surface-raised rounded px-1.5 py-0.5">{session.model}</span>}
           </div>
@@ -361,7 +333,6 @@ function SessionDetailOverlay({ session, onClose }: { session: ACPSession; onClo
             )}
           </div>
 
-          {/* Time info — compact footer */}
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-600 pt-1 border-t border-border">
             {session.startedAt && (
               <span>Started: <span className="text-gray-400 tabular-nums">{new Date(session.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span></span>
@@ -417,11 +388,11 @@ function LayerToggle({
 
 // ── Main Timeline ──
 
-export function Timeline({ runs, jobs, sessions }: TimelineProps) {
+export function Timeline({ calendarEvents, jobs }: TimelineProps) {
   const [offset, setOffset] = useState<1 | 3 | 5>(1);
   const [hourHeight, setHourHeight] = useState(getInitialZoom);
   const [selectedRun, setSelectedRun] = useState<CronRun | null>(null);
-  const [selectedSession, setSelectedSession] = useState<ACPSession | null>(null);
+  const [selectedSessionEvent, setSelectedSessionEvent] = useState<AcpEvent | null>(null);
   const [layers, setLayers] = useState(getInitialLayers);
   const [now, setNow] = useState(() => new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -436,20 +407,17 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
     try { localStorage.setItem(LAYER_KEY, JSON.stringify(layers)); } catch { /* noop */ }
   }, [layers]);
 
-  // Check if any sessions are currently running
   const hasRunningSessions = useMemo(
-    () => sessions.some((s) => s.status === "running" || s.status === "active"),
-    [sessions]
+    () => calendarEvents.some((e) => e.source === "acp" && e.status === "running"),
+    [calendarEvents]
   );
 
-  // Update 'now' every 5s when sessions are running (for live bar growth), otherwise every 60s
   useEffect(() => {
     const interval = hasRunningSessions ? 5_000 : 60_000;
     const t = setInterval(() => setNow(new Date()), interval);
     return () => clearInterval(t);
   }, [hasRunningSessions]);
 
-  // Scroll to current hour on mount
   useEffect(() => {
     if (scrollRef.current) {
       const nowH = new Date().getHours();
@@ -465,12 +433,10 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
   const zoomIn = useCallback(() => setHourHeight((h) => Math.min(MAX_HOUR_HEIGHT, h + ZOOM_STEP)), []);
   const zoomOut = useCallback(() => setHourHeight((h) => Math.max(MIN_HOUR_HEIGHT, h - ZOOM_STEP)), []);
 
-  // Keyboard shortcuts: +/- zoom, 1/3/5 day range
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Don't capture if a modal is open or user is typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (selectedRun || selectedSession) return;
+      if (selectedRun || selectedSessionEvent) return;
 
       switch (e.key) {
         case "=":
@@ -481,7 +447,6 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
         case "5": setOffset(5); break;
         case "t":
         case "T": {
-          // Scroll to now
           if (scrollRef.current) {
             const currentHour = new Date().getHours() + new Date().getMinutes() / 60;
             const targetTop = currentHour * hourHeight - scrollRef.current.clientHeight / 3;
@@ -493,7 +458,7 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [zoomIn, zoomOut, selectedRun, selectedSession, hourHeight]);
+  }, [zoomIn, zoomOut, selectedRun, selectedSessionEvent, hourHeight]);
 
   const totalDays = 2 * offset + 1;
 
@@ -518,21 +483,30 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
     return d;
   }, [rangeStart, totalDays]);
 
-  const visibleRuns = useMemo(
-    () => runs.filter((r) => {
-      const ts = new Date(r.timestamp);
-      return ts >= rangeStart && ts < rangeEnd;
-    }),
-    [runs, rangeStart, rangeEnd]
+  // Split calendar events by source for layer filtering
+  const cronCalendarEvents = useMemo(
+    () => calendarEvents.filter((e): e is CronEvent => e.source === "cron"),
+    [calendarEvents]
+  );
+  const acpCalendarEvents = useMemo(
+    () => calendarEvents.filter((e): e is AcpEvent => e.source === "acp"),
+    [calendarEvents]
   );
 
-  const visibleSessions = useMemo(
-    () => sessions.filter((s) => {
-      const start = s.startedAt ?? s.updatedAt ?? 0;
-      const end = (s.status === "running" || s.status === "active") ? now.getTime() : (s.updatedAt ?? start);
-      return end >= rangeStart.getTime() && start < rangeEnd.getTime();
+  // Extract raw CronRun[] for cron events visible in range (for scheduled projections compatibility)
+  const visibleCronRuns = useMemo(
+    () => cronCalendarEvents
+      .filter((e) => e.endedAt >= rangeStart.getTime() && e.startedAt < rangeEnd.getTime())
+      .map((e) => e.meta.run),
+    [cronCalendarEvents, rangeStart, rangeEnd]
+  );
+
+  const visibleAcpEvents = useMemo(
+    () => acpCalendarEvents.filter((e) => {
+      const end = e.status === "running" ? now.getTime() : e.endedAt;
+      return end >= rangeStart.getTime() && e.startedAt < rangeEnd.getTime();
     }),
-    [sessions, rangeStart, rangeEnd, now]
+    [acpCalendarEvents, rangeStart, rangeEnd, now]
   );
 
   const totalHeight = 24 * hourHeight;
@@ -543,10 +517,9 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* ── Toolbar — flat, edge-to-edge ── */}
+      {/* ── Toolbar ── */}
       <div className="flex items-center justify-between gap-2 px-3 md:px-6 py-1.5 md:py-2 border-b border-white/[0.04] overflow-x-auto shrink-0">
         <div className="flex items-center gap-3 shrink-0">
-          {/* Status legend — desktop only */}
           <div className="hidden lg:flex items-center gap-2 text-[10px] text-gray-600">
             {layers.cron && (
               <>
@@ -561,11 +534,10 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
             )}
           </div>
 
-          <LayerToggle layers={layers} onToggle={toggleLayer} sessionCount={visibleSessions.length} />
+          <LayerToggle layers={layers} onToggle={toggleLayer} sessionCount={visibleAcpEvents.length} />
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {/* Jump to now */}
           <button
             onClick={() => {
               if (scrollRef.current) {
@@ -581,7 +553,6 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
             Now
           </button>
 
-          {/* Zoom */}
           <div className="flex items-center gap-0.5">
             <button
               onClick={zoomOut}
@@ -607,7 +578,6 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
             >+</button>
           </div>
 
-          {/* Day range — flat selector */}
           <div className="flex items-center bg-white/[0.02] p-0.5">
             {([1, 3, 5] as const).map((d) => (
               <button
@@ -626,16 +596,14 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
         </div>
       </div>
 
-      {/* ── Calendar grid — fills remaining viewport ── */}
+      {/* ── Calendar grid ── */}
       <div ref={scrollRef} className="overflow-auto flex-1 min-h-0">
         <div className="min-w-[600px]">
-          {/* ── Day strip header ── */}
+          {/* Day strip header */}
           <div className="sticky top-0 z-20 flex border-b border-white/[0.04] bg-surface/95 backdrop-blur-lg">
-            {/* Time corner */}
             <div className="sticky left-0 self-start z-40 w-10 shrink-0 border-r border-white/[0.06] bg-surface/95 px-1 py-2 text-[9px] text-gray-500 font-medium text-center select-none">
               HR
             </div>
-            {/* Day chips */}
             <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${dayColumns.length}, minmax(100px,1fr))` }}>
               {dayColumns.map((day) => {
                 const today = isToday(day);
@@ -664,9 +632,8 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
             </div>
           </div>
 
-          {/* ── Grid body ── */}
+          {/* Grid body */}
           <div className="relative flex" style={{ height: totalHeight }}>
-            {/* Sticky time axis */}
             <div className="sticky left-0 self-start z-30 w-10 shrink-0 border-r border-white/[0.06] bg-surface/95">
               {Array.from({ length: 25 }, (_, i) => (
                 <div
@@ -679,24 +646,23 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
               ))}
             </div>
 
-            {/* Day columns */}
             <div className="relative flex-1" style={{ display: "grid", gridTemplateColumns: `repeat(${dayColumns.length}, minmax(100px,1fr))` }}>
               {dayColumns.map((day) => {
                 const dayStartMs = day.getTime();
                 const dayEndMs = dayStartMs + DAY_MS;
                 const today = isToday(day);
 
-                // Gather raw session boxes (actual only — no projected sessions)
+                // Session boxes from unified events
                 const rawSessionBoxes: SessionBoxExt[] = layers.sessions
-                  ? visibleSessions
-                      .map((s) => getSessionTimeRange(s, dayStartMs, dayEndMs, now.getTime()))
+                  ? visibleAcpEvents
+                      .map((e) => getSessionTimeRange(e, dayStartMs, dayEndMs, now.getTime()))
                       .filter((b): b is SessionBoxExt => b !== null)
                       .filter((b) => b.endMs - b.startMs >= 30_000)
                   : [];
 
-                // Gather cron runs (actual + ALL scheduled projections)
+                // Cron runs from unified events
                 const dayRuns = layers.cron
-                  ? visibleRuns.filter((r) => {
+                  ? visibleCronRuns.filter((r) => {
                       const ts = new Date(r.timestamp).getTime();
                       return ts >= dayStartMs && ts < dayEndMs;
                     })
@@ -704,7 +670,6 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                 const scheduledCronRuns = layers.cron ? generateScheduledProjections(jobs, dayStartMs, dayEndMs) : [];
                 const allCronRuns = [...dayRuns, ...scheduledCronRuns];
 
-                // Build time extents for each cron run
                 const VISUAL_MIN_MS = 15 * 60_000;
                 const cronExtents = allCronRuns.map((run) => {
                   const endMs = new Date(run.timestamp).getTime();
@@ -714,15 +679,15 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                   return { run, startMs, endMs, visualEndMs };
                 });
 
-                // Unified overlap layout across both types
+                // Unified overlap layout
                 const unifiedSlots: { key: string; startMs: number; endMs: number }[] = [
-                  ...rawSessionBoxes.map((sb) => ({ key: `s-${sb.session.key}`, startMs: sb.startMs, endMs: sb.endMs })),
+                  ...rawSessionBoxes.map((sb) => ({ key: `s-${sb.event.id}`, startMs: sb.startMs, endMs: sb.endMs })),
                   ...cronExtents.map((ce) => ({ key: `c-${ce.run.id}`, startMs: ce.startMs, endMs: ce.visualEndMs })),
                 ];
                 const uLayout = layoutUnified(unifiedSlots);
 
                 const sessionBoxes = rawSessionBoxes.map((sb) => {
-                  const l = uLayout.get(`s-${sb.session.key}`) ?? { col: 0, colCount: 1 };
+                  const l = uLayout.get(`s-${sb.event.id}`) ?? { col: 0, colCount: 1 };
                   return { ...sb, col: l.col, colCount: l.colCount };
                 });
 
@@ -736,18 +701,15 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
 
                 return (
                   <div key={day.toISOString()} className={`relative border-r border-white/[0.03] ${today ? "today-column" : ""}`}>
-                    {/* Scheduled fallback marker — visible chip at top when scheduled events exist */}
                     {scheduledCount > 0 && (
                       <div className="absolute top-1 right-1 z-10 scheduled-marker" title={`${scheduledCount} scheduled run${scheduledCount > 1 ? "s" : ""} today`}>
                         {"\u23F1"} {scheduledCount}
                       </div>
                     )}
-                    {/* Hour gridlines */}
                     {Array.from({ length: 25 }, (_, i) => (
                       <div key={i} className="absolute left-0 right-0 border-t border-white/[0.06]" style={{ top: i * hourHeight }} />
                     ))}
 
-                    {/* Current time indicator on today */}
                     {today && (
                       <div
                         className="absolute left-0 right-0 z-20 pointer-events-none"
@@ -766,18 +728,19 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                     {/* Session bars (background) */}
                     {sessionBoxes.map((sb) => {
                       const top = ((sb.startMs - dayStartMs) / DAY_MS) * totalHeight;
-                      const isScheduled = sb.session.status === "scheduled";
+                      const isScheduled = sb.event.status === "scheduled";
                       const minSessionH = isScheduled ? 22 : 6;
                       const height = Math.max(((sb.endMs - sb.startMs) / DAY_MS) * totalHeight, minSessionH);
                       const showLabel = height >= 18;
-                      const isRunning = sb.session.status === "running" || sb.session.status === "active";
+                      const isRunning = sb.event.status === "running";
                       const timeRange = `${formatTimeShort(sb.startMs)} – ${formatTimeShort(sb.endMs)}`;
+                      const session = sb.event.meta.session;
 
                       return (
                         <button
-                          key={sb.session.key}
-                          onClick={() => !isScheduled && setSelectedSession(sb.session)}
-                          className={`absolute ${isScheduled ? "cursor-default" : "cursor-pointer"} transition-all duration-150 hover:brightness-125 ${sessionStatusColor(sb.session.status)}`}
+                          key={sb.event.id}
+                          onClick={() => !isScheduled && setSelectedSessionEvent(sb.event)}
+                          className={`absolute ${isScheduled ? "cursor-default" : "cursor-pointer"} transition-all duration-150 hover:brightness-125 ${sessionBarClass(sb.event.status)}`}
                           style={{
                             top: `${top}px`,
                             height: `${height}px`,
@@ -787,14 +750,12 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                             ...(isScheduled ? { borderStyle: "dashed", borderWidth: "1px" } : {}),
                           }}
                           title={isScheduled
-                            ? `⏱ Scheduled ACP Session\nJob: ${sb.session.label ?? sb.session.key}\nTime: ${timeRange}\nEst. duration: ${formatDuration(sb.endMs - sb.startMs)}`
-                            : `${sb.session.label ?? sb.session.key} · ${sb.session.status ?? "unknown"}\n${timeRange}${sb.session.duration ? ` · ${sb.session.duration}` : ""}${sb.session.agent ? `\n${sb.session.agent}` : ""}`}
+                            ? `\u23F1 Scheduled ACP Session\nJob: ${sb.event.title}\nTime: ${timeRange}\nEst. duration: ${formatDuration(sb.endMs - sb.startMs)}`
+                            : `${sb.event.title} \u00B7 ${statusLabel(sb.event.status)}\n${timeRange}${session.duration ? ` \u00B7 ${session.duration}` : ""}${session.agent ? `\n${session.agent}` : ""}`}
                         >
-                          {/* Continuation arrow at top (session started before this day) */}
                           {sb.clampedTop && (
-                            <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 text-[8px] text-white/60 leading-none">▴</span>
+                            <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 text-[8px] text-white/60 leading-none">{"\u25B4"}</span>
                           )}
-                          {/* LIVE badge for running sessions */}
                           {isRunning && height >= 28 && (
                             <span className="absolute top-0.5 right-0.5 session-live-badge">
                               LIVE
@@ -804,29 +765,28 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                             <span className={`block px-1.5 text-[9px] leading-tight font-semibold truncate drop-shadow-sm ${isScheduled ? "text-accent-aqua" : "text-white/90"} ${sb.clampedTop ? "mt-2" : ""}`}>
                               {isRunning && <span className="inline-block w-1 h-1 rounded-full bg-accent-aqua animate-pulse mr-1 align-middle" />}
                               {isScheduled && "\u23F1 "}
-                              {sb.session.label ?? sb.session.key}
+                              {sb.event.title}
                             </span>
                           )}
                           {isScheduled && height >= 32 && (
                             <span className="block px-1.5 text-[8px] leading-tight text-accent-aqua/70 truncate">
-                              Scheduled \u00B7 {formatDuration(sb.endMs - sb.startMs)}
+                              Scheduled {"\u00B7"} {formatDuration(sb.endMs - sb.startMs)}
                             </span>
                           )}
-                          {/* Long session fade gradient */}
                           {sb.isLong && height > 60 && (
                             <span className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-black/30 to-transparent rounded-b-sm pointer-events-none" />
                           )}
-                          {/* Continuation arrow at bottom (session extends past this day) */}
                           {sb.clampedBottom && (
-                            <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 text-[8px] text-white/60 leading-none">▾</span>
+                            <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 text-[8px] text-white/60 leading-none">{"\u25BE"}</span>
                           )}
                         </button>
                       );
                     })}
 
-                    {/* ── Cron event cards ── */}
+                    {/* Cron event cards */}
                     {events.map((e) => {
                       const isScheduled = e.run.status === "scheduled";
+                      const evStatus: EventStatus = e.run.status === "ok" ? "done" : e.run.status === "error" ? "error" : e.run.status === "running" ? "running" : e.run.status === "scheduled" ? "scheduled" : "idle";
                       const top = ((e.startMs - dayStartMs) / DAY_MS) * totalHeight;
                       const minH = isScheduled ? 24 : 18;
                       const height = Math.max(((e.visualEndMs - e.startMs) / DAY_MS) * totalHeight, minH);
@@ -844,7 +804,7 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                         <button
                           key={e.run.id}
                           onClick={() => !isScheduled ? setSelectedRun(e.run) : undefined}
-                          className={`timeline-bar ${evClass(e.run.status)} group ${isScheduled ? "cursor-default" : ""}`}
+                          className={`timeline-bar ${cronEvClass(evStatus)} group ${isScheduled ? "cursor-default" : ""}`}
                           style={{
                             top: `${top}px`,
                             height: `${height}px`,
@@ -882,7 +842,6 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
                       );
                     })}
 
-                    {/* No activity placeholder */}
                     {!hasActivity && (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <span className="text-[10px] text-gray-700 italic">No activity</span>
@@ -904,10 +863,10 @@ export function Timeline({ runs, jobs, sessions }: TimelineProps) {
         />
       )}
 
-      {selectedSession && (
+      {selectedSessionEvent && (
         <SessionDetailOverlay
-          session={selectedSession}
-          onClose={() => setSelectedSession(null)}
+          event={selectedSessionEvent}
+          onClose={() => setSelectedSessionEvent(null)}
         />
       )}
     </div>
