@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useJobs, useRuns, useStats, useSessions, isConfigured } from "./hooks/useSupabase";
+import { useJobs, useRuns, useStats, useSessions, useDeviceLinked, isConfigured } from "./hooks/useSupabase";
 import { useAuth } from "./hooks/useAuth";
 import { Login } from "./components/Login";
 import { Stats } from "./components/Stats";
@@ -9,7 +9,6 @@ import { JobList } from "./components/JobList";
 import { ACPSessions } from "./components/ACPSessions";
 import { Settings } from "./components/Settings";
 import { SetupGuide } from "./components/SetupGuide";
-import { LinkDevice } from "./components/LinkDevice";
 
 function RondoLogo() {
   return (
@@ -157,6 +156,7 @@ export function App() {
     window.location.hash = target === "setup" ? "#/setup" : "";
     setPage(target);
   }, []);
+  const { linked } = useDeviceLinked(user?.id);
   const { jobs, loading: jobsLoading, error: jobsError } = useJobs();
   const { runs, loading: runsLoading, error: runsError } = useRuns(undefined, 200);
   const { sessions, refetch: refetchSessions } = useSessions();
@@ -194,6 +194,20 @@ export function App() {
         </div>
       </div>
     );
+  }
+
+  // Still checking device link status
+  if (linked === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // No linked device or explicit setup nav → full-screen setup wizard
+  if (linked === false || page === "setup") {
+    return <SetupGuide onDone={() => navigateTo("dashboard")} />;
   }
 
   const loading = jobsLoading || runsLoading;
@@ -262,9 +276,7 @@ export function App() {
 
       {/* Main */}
       <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        {page === "setup" ? (
-          <SetupGuide onBack={() => navigateTo("dashboard")} />
-        ) : loading && runs.length === 0 ? (
+        {loading && runs.length === 0 ? (
           <div className="flex-1 flex flex-col gap-4 p-6 animate-fade-in">
             <div className="flex gap-3">
               {[1,2,3,4,5].map((i) => (
@@ -291,9 +303,8 @@ export function App() {
                 <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Cron Jobs</h2>
                 <JobList jobs={jobs} selectedJobId={selectedJobId} onSelect={setSelectedJobId} />
               </div>
-              <div className="space-y-4">
+              <div>
                 <ACPSessions />
-                <LinkDevice />
               </div>
             </div>
 

@@ -216,6 +216,46 @@ function formatDuration(ms: number): string {
   return `${s}s`;
 }
 
+// ── useDeviceLinked ──
+
+export function useDeviceLinked(userId: string | undefined, pollMs = 5000) {
+  const [linked, setLinked] = useState<boolean | null>(null); // null = loading
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const check = useCallback(async () => {
+    const client = getClient();
+    if (!client || !userId) return;
+
+    try {
+      const { data, error: err } = await client
+        .from("device_links")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("used", true)
+        .limit(1);
+
+      if (err) throw err;
+      setLinked((data ?? []).length > 0);
+    } catch {
+      // keep current state on error
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      setLinked(null);
+      return;
+    }
+    check();
+    timerRef.current = setInterval(check, pollMs);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [check, pollMs, userId]);
+
+  return { linked, recheckNow: check };
+}
+
 export function isConfigured(): boolean {
   return !!(supabaseUrl && supabaseAnonKey);
 }
