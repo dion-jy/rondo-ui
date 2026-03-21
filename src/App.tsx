@@ -440,31 +440,6 @@ export function App() {
       {/* Main */}
       <main
         className="flex-1 min-h-0 flex flex-col overflow-hidden"
-        onTouchStart={(e) => {
-          const t = e.touches[0];
-          (e.currentTarget as any)._swipe = { x: t.clientX, y: t.clientY, swiping: false };
-        }}
-        onTouchMove={(e) => {
-          const s = (e.currentTarget as any)._swipe;
-          if (!s) return;
-          const dx = e.touches[0].clientX - s.x;
-          const dy = e.touches[0].clientY - s.y;
-          // Lock direction once movement exceeds 10px
-          if (!s.locked && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
-            s.locked = true;
-            s.horizontal = Math.abs(dx) > Math.abs(dy) + 5;
-          }
-        }}
-        onTouchEnd={(e) => {
-          const s = (e.currentTarget as any)._swipe;
-          if (!s || !s.locked || !s.horizontal) return;
-          const dx = e.changedTouches[0].clientX - s.x;
-          if (Math.abs(dx) >= 50) {
-            if (dx < 0 && activeTab === "calendar") setActiveTab("jobs");
-            else if (dx > 0 && activeTab === "jobs") setActiveTab("calendar");
-          }
-          (e.currentTarget as any)._swipe = null;
-        }}
       >
         {loading && runs.length === 0 ? (
           <div className="flex-1 flex flex-col gap-4 p-6 animate-fade-in">
