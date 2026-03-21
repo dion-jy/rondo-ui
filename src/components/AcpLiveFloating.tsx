@@ -1,6 +1,34 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ACPSession } from "../types";
 
+// ── Browser Notification helpers ──
+
+const notifiedKeys = new Set<string>();
+
+function fireBrowserNotification(sessionKey: string, status: "done" | "error" | "running", label: string) {
+  const dedupKey = `${sessionKey}:${status}`;
+  if (notifiedKeys.has(dedupKey)) return;
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+
+  notifiedKeys.add(dedupKey);
+  const body = status === "done" ? `[완료] ${label}` : status === "error" ? `[에러] ${label}` : `[시작] ${label}`;
+  try {
+    new Notification("Rondo ACP", { body, tag: dedupKey });
+  } catch {
+    // SW-only environment (mobile PWA) — fall back to service worker notification
+    navigator.serviceWorker?.ready
+      .then((reg) => reg.showNotification("Rondo ACP", { body, tag: dedupKey }))
+      .catch(() => {});
+  }
+}
+
+function requestNotificationPermission() {
+  if (typeof Notification === "undefined") return;
+  if (Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+}
+
 function timeAgo(ts?: number): string {
   if (!ts) return "";
   const diff = Date.now() - ts;
@@ -14,7 +42,7 @@ function timeAgo(ts?: number): string {
 interface Toast {
   id: string;
   label: string;
-  kind: "done" | "error";
+  kind: "done" | "error" | "start";
   ts: number;
 }
 
@@ -28,12 +56,14 @@ function ToastStack({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: st
           className={`pointer-events-auto flex items-center gap-2 px-3 py-2 rounded-lg shadow-lg text-sm animate-fade-in ${
             t.kind === "done"
               ? "bg-success/15 border border-success/30 text-success"
+              : t.kind === "start"
+              ? "bg-accent/15 border border-accent/30 text-accent"
               : "bg-error/15 border border-error/30 text-error"
           }`}
         >
-          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${t.kind === "done" ? "bg-success" : "bg-error"}`} />
+          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${t.kind === "done" ? "bg-success" : t.kind === "start" ? "bg-accent" : "bg-error"}`} />
           <span className="truncate max-w-[200px]">
-            {t.kind === "done" ? "[ACP 완료]" : "[ACP 에러]"} {t.label}
+            {t.kind === "done" ? "[ACP 완료]" : t.kind === "start" ? "[ACP 시작]" : "[ACP 에러]"} {t.label}
           </span>
           <button onClick={() => onDismiss(t.id)} className="ml-1 text-gray-500 hover:text-gray-300 text-xs">✕</button>
         </div>
@@ -46,6 +76,9 @@ export function AcpLiveFloating({ sessions }: { sessions: ACPSession[] }) {
   const [open, setOpen] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const prevStatusRef = useRef<Map<string, string>>(new Map());
+  const [notifPerm, setNotifPerm] = useState<NotificationPermission | "unsupported">(
+    typeof Notification !== "undefined" ? Notification.permission : "unsupported"
+  );
 
   const running = useMemo(
     () => sessions.filter((s) => s.status === "running" || s.status === "active").slice(0, 5),
@@ -62,11 +95,22 @@ export function AcpLiveFloating({ sessions }: { sessions: ACPSession[] }) {
       next.set(s.key, status);
 
       const prevStatus = prev.get(s.key);
+      const lbl = s.label ?? s.key;
+
+      // Detect new session starting (not previously tracked → running)
+      if (!prevStatus && (status === "running" || status === "active")) {
+        setToasts((ts) => [...ts, { id: `${s.key}-start-${Date.now()}`, label: lbl, kind: "start" as Toast["kind"], ts: Date.now() }]);
+        fireBrowserNotification(s.key, "running", lbl);
+      }
+
+      // Detect running → done/error transitions
       if (prevStatus && (prevStatus === "running" || prevStatus === "active")) {
         if (status === "done" || status === "completed") {
-          setToasts((ts) => [...ts, { id: `${s.key}-${Date.now()}`, label: s.label ?? s.key, kind: "done", ts: Date.now() }]);
+          setToasts((ts) => [...ts, { id: `${s.key}-${Date.now()}`, label: lbl, kind: "done", ts: Date.now() }]);
+          fireBrowserNotification(s.key, "done", lbl);
         } else if (status === "error") {
-          setToasts((ts) => [...ts, { id: `${s.key}-${Date.now()}`, label: s.label ?? s.key, kind: "error", ts: Date.now() }]);
+          setToasts((ts) => [...ts, { id: `${s.key}-${Date.now()}`, label: lbl, kind: "error", ts: Date.now() }]);
+          fireBrowserNotification(s.key, "error", lbl);
         }
       }
     }
@@ -110,6 +154,31 @@ export function AcpLiveFloating({ sessions }: { sessions: ACPSession[] }) {
                   ))
                 )}
               </div>
+              {/* Notification permission bar */}
+              {notifPerm === "default" && (
+                <button
+                  onClick={() => {
+                    requestNotificationPermission();
+                    // Re-check after a short delay (permission dialog is async)
+                    setTimeout(() => {
+                      setNotifPerm(typeof Notification !== "undefined" ? Notification.permission : "unsupported");
+                    }, 500);
+                  }}
+                  className="w-full px-3 py-2 text-[11px] text-accent hover:bg-accent/10 border-t border-border transition-colors text-left"
+                >
+                  🔔 알림 허용 — ACP 완료/에러 시 브라우저 알림
+                </button>
+              )}
+              {notifPerm === "denied" && (
+                <div className="px-3 py-1.5 text-[10px] text-gray-500 border-t border-border">
+                  브라우저 알림 차단됨 — 설정에서 허용 가능
+                </div>
+              )}
+              {notifPerm === "granted" && (
+                <div className="px-3 py-1.5 text-[10px] text-gray-400 border-t border-border">
+                  🔔 브라우저 알림 활성
+                </div>
+              )}
             </div>
           )}
           <button
