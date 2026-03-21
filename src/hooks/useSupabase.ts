@@ -183,7 +183,7 @@ export function useSessions(userId: string | undefined, refreshIntervalMs = SLOW
         label: row.label ?? undefined,
         agent: row.agent ?? undefined,
         model: row.model ?? undefined,
-        status: row.status ?? undefined,
+        status: normalizeSessionStatus(row.status),
         updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : undefined,
         startedAt: row.started_at ? new Date(row.started_at).getTime() : undefined,
         summary: row.summary ?? undefined,
@@ -223,6 +223,17 @@ export function useSessions(userId: string | undefined, refreshIntervalMs = SLOW
   }, [fetchSessions, refreshIntervalMs]);
 
   return { sessions, loading, error, refetch: fetchSessions };
+}
+
+/** Normalize backend session statuses to canonical values */
+function normalizeSessionStatus(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  const s = raw.toLowerCase();
+  if (s === "running" || s === "active") return "running";
+  if (s === "done" || s === "completed") return "done";
+  if (s === "error") return "error";
+  if (s === "idle") return "idle";
+  return s;
 }
 
 function formatDuration(ms: number): string {
@@ -358,6 +369,78 @@ function compareSemver(a: string, b: string): number {
     if (diff !== 0) return diff;
   }
   return 0;
+}
+
+// ── useSyncStatus ──
+
+export interface SyncStatus {
+  lastSyncedAt: number | null;  // epoch ms
+  ageMs: number;                // ms since last sync
+  health: "fresh" | "stale" | "dead" | "unknown";
+  loading: boolean;
+}
+
+export function useSyncStatus(userId: string | undefined, pollMs = 30_000): SyncStatus {
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const check = useCallback(async () => {
+    const client = getClient();
+    if (!client || !userId) return;
+
+    try {
+      // Get the most recent synced_at across cron_jobs and acp_sessions
+      const [jobRes, sessionRes] = await Promise.all([
+        client
+          .from("cron_jobs")
+          .select("synced_at")
+          .eq("user_id", userId)
+          .order("synced_at", { ascending: false })
+          .limit(1),
+        client
+          .from("acp_sessions")
+          .select("synced_at")
+          .eq("user_id", userId)
+          .order("synced_at", { ascending: false })
+          .limit(1),
+      ]);
+
+      const timestamps: number[] = [];
+      if (jobRes.data?.[0]?.synced_at) timestamps.push(new Date(jobRes.data[0].synced_at).getTime());
+      if (sessionRes.data?.[0]?.synced_at) timestamps.push(new Date(sessionRes.data[0].synced_at).getTime());
+
+      if (timestamps.length > 0) {
+        setLastSyncedAt(Math.max(...timestamps));
+      }
+    } catch {
+      // non-fatal
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+    check();
+    timerRef.current = setInterval(check, pollMs);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [check, pollMs, userId]);
+
+  const ageMs = lastSyncedAt ? Date.now() - lastSyncedAt : Infinity;
+  let health: SyncStatus["health"] = "unknown";
+  if (lastSyncedAt) {
+    if (ageMs < 5 * 60_000) health = "fresh";
+    else if (ageMs < 15 * 60_000) health = "stale";
+    else health = "dead";
+  }
+
+  return { lastSyncedAt, ageMs, health, loading };
 }
 
 export function isConfigured(): boolean {

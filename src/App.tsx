@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { useJobs, useRuns, useStats, useSessions, useDeviceLinked, usePluginVersion, isConfigured } from "./hooks/useSupabase";
+import { useJobs, useRuns, useStats, useSessions, useDeviceLinked, usePluginVersion, useSyncStatus, isConfigured } from "./hooks/useSupabase";
+import type { SyncStatus } from "./hooks/useSupabase";
 import { useAuth } from "./hooks/useAuth";
 import { normalizeEvents } from "./lib/events";
 import { Login } from "./components/Login";
@@ -92,6 +93,43 @@ function SyncButton({ onSynced }: { onSynced?: () => void }) {
       {state === "done" ? "Synced!" : "Sync"}
     </button>
   );
+}
+
+function SyncStatusDot({ status }: { status: SyncStatus }) {
+  if (status.loading || status.health === "unknown") return null;
+
+  const dotColor =
+    status.health === "fresh" ? "bg-success" :
+    status.health === "stale" ? "bg-warning" :
+    "bg-error";
+
+  const label =
+    status.health === "fresh" ? "Sync active" :
+    status.health === "stale" ? "Sync stale" :
+    "Sync dead";
+
+  const ago = status.lastSyncedAt
+    ? formatSyncAge(Date.now() - status.lastSyncedAt)
+    : "never";
+
+  return (
+    <div
+      className="flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] text-gray-500"
+      title={`${label} — last sync ${ago}`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${dotColor} ${status.health === "fresh" ? "animate-pulse" : ""}`} />
+      <span className="hidden lg:inline">{ago}</span>
+    </div>
+  );
+}
+
+function formatSyncAge(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return "just now";
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  return `${h}h ago`;
 }
 
 function AccountMenu({ email, avatarUrl, onSignOut, onSetup, onTheme }: { email: string; avatarUrl?: string; onSignOut: () => void; onSetup?: () => void; onTheme?: () => void }) {
@@ -238,6 +276,7 @@ export function App() {
   const { runs, loading: runsLoading, error: runsError } = useRuns(user?.id, undefined, 200);
   const { sessions, refetch: refetchSessions } = useSessions(user?.id);
   const pluginVer = usePluginVersion(user?.id);
+  const syncStatus = useSyncStatus(user?.id);
   const stats = useStats(jobs, runs);
 
   // Unified event pipeline — single source of truth for all surfaces
@@ -345,8 +384,9 @@ export function App() {
       <header className="border-b border-border bg-surface z-30 shrink-0">
         <div className="flex items-center justify-between px-4 md:px-6 py-2">
           <RondoLogo />
-          {/* Mobile: sync + account menu */}
+          {/* Mobile: sync status + sync + account menu */}
           <div className="md:hidden flex items-center gap-2">
+            <SyncStatusDot status={syncStatus} />
             <SyncButton onSynced={refetchSessions} />
             <AccountMenu email={user.email ?? ""} avatarUrl={user.user_metadata?.avatar_url} onSignOut={signOut} onSetup={() => navigateTo("setup")} onTheme={() => setSettingsOpen(true)} />
           </div>
@@ -366,6 +406,7 @@ export function App() {
               </button>
             </div>
             <SyncButton onSynced={refetchSessions} />
+            <SyncStatusDot status={syncStatus} />
             <PluginVersionBadge info={pluginVer} />
             <div className="ml-2 pl-2 border-l border-border">
               <AccountMenu email={user.email ?? ""} avatarUrl={user.user_metadata?.avatar_url} onSignOut={signOut} onSetup={() => navigateTo("setup")} onTheme={() => setSettingsOpen(true)} />
@@ -397,7 +438,34 @@ export function App() {
       )}
 
       {/* Main */}
-      <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      <main
+        className="flex-1 min-h-0 flex flex-col overflow-hidden"
+        onTouchStart={(e) => {
+          const t = e.touches[0];
+          (e.currentTarget as any)._swipe = { x: t.clientX, y: t.clientY, swiping: false };
+        }}
+        onTouchMove={(e) => {
+          const s = (e.currentTarget as any)._swipe;
+          if (!s) return;
+          const dx = e.touches[0].clientX - s.x;
+          const dy = e.touches[0].clientY - s.y;
+          // Lock direction once movement exceeds 10px
+          if (!s.locked && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+            s.locked = true;
+            s.horizontal = Math.abs(dx) > Math.abs(dy) + 5;
+          }
+        }}
+        onTouchEnd={(e) => {
+          const s = (e.currentTarget as any)._swipe;
+          if (!s || !s.locked || !s.horizontal) return;
+          const dx = e.changedTouches[0].clientX - s.x;
+          if (Math.abs(dx) >= 50) {
+            if (dx < 0 && activeTab === "calendar") setActiveTab("jobs");
+            else if (dx > 0 && activeTab === "jobs") setActiveTab("calendar");
+          }
+          (e.currentTarget as any)._swipe = null;
+        }}
+      >
         {loading && runs.length === 0 ? (
           <div className="flex-1 flex flex-col gap-4 p-6 animate-fade-in">
             <div className="flex gap-3">

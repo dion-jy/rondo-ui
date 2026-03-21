@@ -52,7 +52,27 @@ OpenClaw Gateway          Supabase          Rondo UI (Vercel)
 - **ACP sessions** — live agent session tracking with adaptive polling
 - **Device linking** — generate one-time tokens to link OpenClaw instances
 - **5 dark themes** — Midnight, Nord, Solarized, Dracula, Rose Pine
+- **PWA** — installable on Android & iOS, offline app shell caching
 - **Responsive** — mobile-friendly with bottom navigation
+
+## Install as App (PWA)
+
+Rondo can be installed as a standalone app on your phone or desktop.
+
+### Android (Chrome)
+
+1. Open [rondo-ui.vercel.app](https://rondo-ui.vercel.app) in Chrome
+2. Tap the **"Install Rondo"** banner at the bottom, or tap the browser menu (three dots) → **"Install app"** / **"Add to Home screen"**
+3. Rondo appears as a standalone app on your home screen
+
+### iOS (Safari)
+
+1. Open [rondo-ui.vercel.app](https://rondo-ui.vercel.app) in Safari
+2. Tap the **Share** button (square with arrow)
+3. Scroll down and tap **"Add to Home Screen"**
+4. Tap **Add**
+
+> **Note:** The PWA caches static assets (JS, CSS, HTML) for fast loading. Supabase API data is always fetched live — never stale from cache.
 
 ## Development
 
