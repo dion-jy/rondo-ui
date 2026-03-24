@@ -1,33 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ACPSession } from "../types";
-
-// ── Browser Notification helpers ──
-
-const notifiedKeys = new Set<string>();
-
-function fireBrowserNotification(sessionKey: string, status: "done" | "error" | "running", label: string) {
-  const dedupKey = `${sessionKey}:${status}`;
-  if (notifiedKeys.has(dedupKey)) return;
-  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
-
-  notifiedKeys.add(dedupKey);
-  const body = status === "done" ? `[완료] ${label}` : status === "error" ? `[에러] ${label}` : `[시작] ${label}`;
-  try {
-    new Notification("Rondo ACP", { body, tag: dedupKey });
-  } catch {
-    // SW-only environment (mobile PWA) — fall back to service worker notification
-    navigator.serviceWorker?.ready
-      .then((reg) => reg.showNotification("Rondo ACP", { body, tag: dedupKey }))
-      .catch(() => {});
-  }
-}
-
-function requestNotificationPermission() {
-  if (typeof Notification === "undefined") return;
-  if (Notification.permission === "default") {
-    Notification.requestPermission();
-  }
-}
+import { fireAcpNotification, getNotificationPermission, requestNotificationPermission } from "../lib/notifications";
 
 function timeAgo(ts?: number): string {
   if (!ts) return "";
@@ -76,9 +49,7 @@ export function AcpLiveFloating({ sessions }: { sessions: ACPSession[] }) {
   const [open, setOpen] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const prevStatusRef = useRef<Map<string, string>>(new Map());
-  const [notifPerm, setNotifPerm] = useState<NotificationPermission | "unsupported">(
-    typeof Notification !== "undefined" ? Notification.permission : "unsupported"
-  );
+  const [notifPerm, setNotifPerm] = useState<NotificationPermission | "unsupported">(getNotificationPermission);
 
   const running = useMemo(
     () => sessions.filter((s) => s.status === "running" || s.status === "active").slice(0, 5),
@@ -100,17 +71,17 @@ export function AcpLiveFloating({ sessions }: { sessions: ACPSession[] }) {
       // Detect new session starting (not previously tracked → running)
       if (!prevStatus && (status === "running" || status === "active")) {
         setToasts((ts) => [...ts, { id: `${s.key}-start-${Date.now()}`, label: lbl, kind: "start" as Toast["kind"], ts: Date.now() }]);
-        fireBrowserNotification(s.key, "running", lbl);
+        fireAcpNotification(s.key, "running", lbl);
       }
 
       // Detect running → done/error transitions
       if (prevStatus && (prevStatus === "running" || prevStatus === "active")) {
         if (status === "done" || status === "completed") {
           setToasts((ts) => [...ts, { id: `${s.key}-${Date.now()}`, label: lbl, kind: "done", ts: Date.now() }]);
-          fireBrowserNotification(s.key, "done", lbl);
+          fireAcpNotification(s.key, "done", lbl);
         } else if (status === "error") {
           setToasts((ts) => [...ts, { id: `${s.key}-${Date.now()}`, label: lbl, kind: "error", ts: Date.now() }]);
-          fireBrowserNotification(s.key, "error", lbl);
+          fireAcpNotification(s.key, "error", lbl);
         }
       }
     }
@@ -157,12 +128,9 @@ export function AcpLiveFloating({ sessions }: { sessions: ACPSession[] }) {
               {/* Notification permission bar */}
               {notifPerm === "default" && (
                 <button
-                  onClick={() => {
-                    requestNotificationPermission();
-                    // Re-check after a short delay (permission dialog is async)
-                    setTimeout(() => {
-                      setNotifPerm(typeof Notification !== "undefined" ? Notification.permission : "unsupported");
-                    }, 500);
+                  onClick={async () => {
+                    const result = await requestNotificationPermission();
+                    setNotifPerm(result);
                   }}
                   className="w-full px-3 py-2 text-[11px] text-accent hover:bg-accent/10 border-t border-border transition-colors text-left"
                 >
