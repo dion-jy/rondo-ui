@@ -1,8 +1,9 @@
 // ── Heads-up Notification System ──
 // Maximizes visibility within browser/PWA constraints.
 
-const ICON_URL = "/pwa-192x192.svg";
-const BADGE_URL = "/favicon.svg";
+// Android/Chrome: SVG badge/icon support is unreliable → use PNG with SVG fallback
+const ICON_URL = "/pwa-192x192.png";
+const BADGE_URL = "/pwa-192x192.png";
 
 // ── Dedup & throttle ──
 
