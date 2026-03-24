@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.svg", "rondo-logo.svg"],
+      includeAssets: ["favicon.svg", "rondo-logo.svg", "pwa-192x192.svg", "pwa-512x512.svg", "pwa-maskable-512x512.svg"],
       manifest: {
         name: "Rondo",
         short_name: "Rondo",
@@ -18,19 +18,19 @@ export default defineConfig({
         start_url: "/",
         icons: [
           {
-            src: "pwa-192x192.png",
+            src: "pwa-192x192.svg",
             sizes: "192x192",
-            type: "image/png",
+            type: "image/svg+xml",
           },
           {
-            src: "pwa-512x512.png",
+            src: "pwa-512x512.svg",
             sizes: "512x512",
-            type: "image/png",
+            type: "image/svg+xml",
           },
           {
-            src: "pwa-maskable-512x512.png",
+            src: "pwa-maskable-512x512.svg",
             sizes: "512x512",
-            type: "image/png",
+            type: "image/svg+xml",
             purpose: "maskable",
           },
         ],
