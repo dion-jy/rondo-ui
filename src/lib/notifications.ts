@@ -1,9 +1,9 @@
 // ── Heads-up Notification System ──
 // Maximizes visibility within browser/PWA constraints.
 
-// Android/Chrome: SVG badge/icon support is unreliable → use PNG with SVG fallback
+// Android/Chrome: status-bar icon can appear as white square when badge is non-monochrome.
+// Use app icon for main notification and omit badge for compatibility.
 const ICON_URL = "/pwa-192x192.png";
-const BADGE_URL = "/pwa-192x192.png";
 
 // ── Dedup & throttle ──
 
@@ -69,7 +69,6 @@ export function fireHeadsUp(opts: HeadsUpOptions): void {
     body,
     tag, // Same tag → replaces previous (dedup)
     icon: ICON_URL,
-    badge: BADGE_URL,
     renotify: true, // Re-alert even if same tag replaces
     silent: false,
     requireInteraction: critical, // Critical stays until dismissed
